@@ -7,7 +7,7 @@ const router = Router()
 
 router.post('/create-order', authenticate, ctrl.createOrder)
 router.post('/verify', authenticate, ctrl.verifyPayment)
-router.post('/webhook', express.raw({ type: 'application/json' }), ctrl.webhook)
+router.post('/webhook', express.urlencoded({ extended: false }), ctrl.webhook)
 router.get('/:id/status', authenticate, ctrl.paymentStatus)
 
 export default router

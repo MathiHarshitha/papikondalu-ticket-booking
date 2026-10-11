@@ -214,12 +214,12 @@ function BookingWizardInner() {
     </div>
   )
 
-  // Step 4: Payment (Razorpay integration)
+  // Step 4: Payment (PayU Bolt integration)
   if (step === 4) return (
     <div>
       <button onClick={() => setStep(3)} className="flex items-center gap-1 text-muted text-sm mb-5 hover:text-ink"><ArrowLeft className="w-4 h-4" /> Back to Review</button>
       <h2 className="font-display text-xl font-bold text-ink mb-2">Secure Payment</h2>
-      <p className="text-muted text-sm mb-6">Powered by Razorpay — India's trusted payment gateway. Your card details never touch our servers.</p>
+      <p className="text-muted text-sm mb-6">Powered by PayU — India's trusted payment gateway. Your card details never touch our servers.</p>
 
       <div className="card p-5 mb-4">
         <div className="flex justify-between items-center">
@@ -238,7 +238,6 @@ function BookingWizardInner() {
         setPayLoading(true)
         setPayError('')
         try {
-          // 1. Hold seats and create Razorpay order
           const holdRes = await fetch(`${API}/bookings/hold`, {
             method: 'POST',
             credentials: 'include',
@@ -257,7 +256,6 @@ function BookingWizardInner() {
           const holdData = await holdRes.json()
           if (!holdRes.ok) throw new Error(holdData.message ?? 'Failed to hold seats')
 
-          // 2. Create Razorpay order
           const orderRes = await fetch(`${API}/payments/create-order`, {
             method: 'POST',
             credentials: 'include',
@@ -267,57 +265,65 @@ function BookingWizardInner() {
           const orderData = await orderRes.json()
           if (!orderRes.ok) throw new Error(orderData.message ?? 'Payment initialization failed')
 
-          // 3. Open Razorpay checkout
-          const options = {
-            key: orderData.keyId,
-            amount: orderData.amount,
-            currency: 'INR',
-            name: 'Aswini Godavari Travel',
-            description: pkg!.name,
-            image: 'https://res.cloudinary.com/dnz1dmnmb/image/upload/v1755418849/AG_LOGO_2_xfznol.png',
-            order_id: orderData.orderId,
-            prefill: { name: contact.name, email: contact.email, contact: contact.phone },
-            theme: { color: '#168C8C' },
-            handler: async function (response: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string }) {
-              const verRes = await fetch(`${API}/payments/verify`, {
-                method: 'POST',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_signature: response.razorpay_signature,
-                  bookingId: holdData.bookingId,
-                }),
-              })
-              const verData = await verRes.json()
-              if (!verRes.ok) throw new Error(verData.message ?? 'Payment verification failed')
-              setBookingRef(verData.bookingRef)
-              setTicketId(verData.ticketId)
-              setStep(5)
-            },
-          }
           // @ts-ignore
-          const rzp = new window.Razorpay(options)
-          rzp.on('payment.failed', (resp: any) => setPayError(resp.error?.description ?? 'Payment failed. Please try again.'))
-          rzp.open()
+          window.bolt.launch({
+            key: orderData.key,
+            txnid: orderData.txnid,
+            amount: orderData.amount,
+            productinfo: orderData.productinfo,
+            firstname: orderData.firstname,
+            email: orderData.email,
+            phone: orderData.phone,
+            surl: window.location.href,
+            furl: window.location.href,
+            hash: orderData.hash,
+            udf1: '', udf2: '', udf3: '', udf4: '', udf5: '',
+          }, {
+            responseHandler: async (BOLT: any) => {
+              if (BOLT.response.txnStatus === 'SUCCESS') {
+                const verRes = await fetch(`${API}/payments/verify`, {
+                  method: 'POST',
+                  credentials: 'include',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    txnid: BOLT.response.txnid,
+                    mihpayid: BOLT.response.mihpayid,
+                    txnStatus: BOLT.response.txnStatus,
+                    hash: BOLT.response.hash,
+                    bookingId: holdData.bookingId,
+                  }),
+                })
+                const verData = await verRes.json()
+                if (!verRes.ok) throw new Error(verData.message ?? 'Payment verification failed')
+                setBookingRef(verData.bookingRef)
+                setTicketId(verData.ticketId)
+                setStep(5)
+              } else {
+                setPayError(BOLT.response.txnStatus === 'CANCEL' ? 'Payment cancelled.' : 'Payment failed. Please try again.')
+              }
+              setPayLoading(false)
+            },
+            catchException: (BOLT: any) => {
+              setPayError(BOLT.message ?? 'Something went wrong. Please try again.')
+              setPayLoading(false)
+            },
+          })
         } catch (err: any) {
           setPayError(err.message ?? 'Something went wrong. Please try again.')
-        } finally {
           setPayLoading(false)
         }
       }}
         disabled={payLoading}
         className="btn-primary w-full justify-center disabled:opacity-50 text-base py-3">
-        {payLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</> : <><CreditCard className="w-5 h-5" /> Pay ₹{total.toLocaleString('en-IN')} via Razorpay</>}
+        {payLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</> : <><CreditCard className="w-5 h-5" /> Pay ₹{total.toLocaleString('en-IN')} via PayU</>}
       </button>
 
       <div className="flex items-center justify-center gap-3 mt-4 text-xs text-muted">
-        <span>🔒 256-bit SSL</span><span>·</span><span>PCI-DSS Razorpay</span><span>·</span><span>UPI · Cards · NetBanking</span>
+        <span>🔒 256-bit SSL</span><span>·</span><span>PCI-DSS PayU</span><span>·</span><span>UPI · Cards · NetBanking</span>
       </div>
 
-      {/* Razorpay script */}
-      <script src="https://checkout.razorpay.com/v1/checkout.js" async />
+      {/* PayU Bolt script */}
+      <script src="https://jssdk.payu.in/bolt/bolt.min.js" async />
     </div>
   )
 
@@ -528,7 +534,7 @@ function BookingWizardContent({ step, setStep, initSlug }: { step: number; setSt
     <div>
       <button onClick={() => setStep(3)} className="flex items-center gap-1 text-muted text-sm mb-5 hover:text-ink"><ArrowLeft className="w-4 h-4" /> Back</button>
       <h2 className="font-display text-xl font-bold text-ink mb-2">Secure Payment</h2>
-      <p className="text-muted text-sm mb-5">Powered by Razorpay. UPI · Cards · Net Banking · Wallets.</p>
+      <p className="text-muted text-sm mb-5">Powered by PayU. UPI · Cards · Net Banking · Wallets.</p>
       <div className="card p-4 mb-4 flex justify-between items-center">
         <span className="text-muted text-sm">Amount to pay</span>
         <span className="font-display font-bold text-teal text-2xl">₹{total.toLocaleString('en-IN')}</span>
@@ -553,33 +559,45 @@ function BookingWizardContent({ step, setStep, initSlug }: { step: number; setSt
             const orderData = await orderRes.json()
             if (!orderRes.ok) throw new Error(orderData.message ?? 'Payment setup failed.')
             // @ts-ignore
-            const rzp = new window.Razorpay({
-              key: orderData.keyId, amount: orderData.amount, currency: 'INR',
-              name: 'Aswini Godavari Travel', description: pkg!.name,
-              image: 'https://res.cloudinary.com/dnz1dmnmb/image/upload/v1755418849/AG_LOGO_2_xfznol.png',
-              order_id: orderData.orderId,
-              prefill: { name: contact.name, email: contact.email, contact: contact.phone },
-              theme: { color: '#168C8C' },
-              handler: async (response: any) => {
-                const vr = await fetch(`${API}/payments/verify`, {
-                  method: 'POST', credentials: 'include',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ ...response, bookingId: holdData.bookingId }),
-                })
-                const vd = await vr.json()
-                if (!vr.ok) { setPayError(vd.message ?? 'Payment verification failed.'); return }
-                setBookingRef(vd.bookingRef); setTicketId(vd.ticketId); setStep(5)
+            window.bolt.launch({
+              key: orderData.key,
+              txnid: orderData.txnid,
+              amount: orderData.amount,
+              productinfo: orderData.productinfo,
+              firstname: orderData.firstname,
+              email: orderData.email,
+              phone: orderData.phone,
+              surl: window.location.href,
+              furl: window.location.href,
+              hash: orderData.hash,
+              udf1: '', udf2: '', udf3: '', udf4: '', udf5: '',
+            }, {
+              responseHandler: async (BOLT: any) => {
+                if (BOLT.response.txnStatus === 'SUCCESS') {
+                  const vr = await fetch(`${API}/payments/verify`, {
+                    method: 'POST', credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ txnid: BOLT.response.txnid, mihpayid: BOLT.response.mihpayid, txnStatus: BOLT.response.txnStatus, hash: BOLT.response.hash, bookingId: holdData.bookingId }),
+                  })
+                  const vd = await vr.json()
+                  if (!vr.ok) { setPayError(vd.message ?? 'Payment verification failed.'); setPayLoading(false); return }
+                  setBookingRef(vd.bookingRef); setTicketId(vd.ticketId); setStep(5)
+                } else {
+                  setPayError(BOLT.response.txnStatus === 'CANCEL' ? 'Payment cancelled.' : 'Payment failed. Please try again.')
+                  setPayLoading(false)
+                }
+              },
+              catchException: (BOLT: any) => {
+                setPayError(BOLT.message ?? 'Something went wrong. Please try again.')
+                setPayLoading(false)
               },
             })
-            rzp.on('payment.failed', (r: any) => { setPayError(r.error?.description ?? 'Payment failed.'); setPayLoading(false) })
-            rzp.open()
-          } catch (e: any) { setPayError(e.message ?? 'Something went wrong.') }
-          finally { setPayLoading(false) }
+          } catch (e: any) { setPayError(e.message ?? 'Something went wrong.'); setPayLoading(false) }
         }}>
         {payLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing…</> : <><CreditCard className="w-5 h-5" /> Pay ₹{total.toLocaleString('en-IN')} Securely</>}
       </button>
       <div className="text-center text-xs text-muted mt-4">🔒 SSL encrypted · PCI-DSS compliant · Never stored on our servers</div>
-      <script src="https://checkout.razorpay.com/v1/checkout.js" async />
+      <script src="https://jssdk.payu.in/bolt/bolt.min.js" async />
     </div>
   )
 

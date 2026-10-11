@@ -1,4 +1,8 @@
 import mongoose from 'mongoose'
+import dns from 'dns'
+
+// Node's c-ares resolver fails SRV lookups on some ISP DNS servers.
+dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1'])
 
 export async function connectDB(): Promise<void> {
   const uri = process.env.MONGODB_URI

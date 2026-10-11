@@ -10,75 +10,93 @@ import { AppError } from '../middleware/errorHandler'
 import { logger } from '../config/logger'
 import { v4 as uuidv4 } from 'uuid'
 
-function getRazorpay() {
-  const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = process.env
-  if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) return null
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const Razorpay = require('razorpay')
-  return new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET })
+function sha512(str: string): string {
+  return crypto.createHash('sha512').update(str).digest('hex')
+}
+
+function payuRequestHash(key: string, txnid: string, amount: string, productinfo: string, firstname: string, email: string, salt: string): string {
+  return sha512(`${key}|${txnid}|${amount}|${productinfo}|${firstname}|${email}|||||||||||||${salt}`)
+}
+
+function payuResponseHash(salt: string, status: string, txnid: string, amount: string, productinfo: string, firstname: string, email: string, key: string): string {
+  return sha512(`${salt}|${status}|||||||||||||${email}|${firstname}|${productinfo}|${amount}|${txnid}|${key}`)
 }
 
 export async function createOrder(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const { bookingId } = z.object({ bookingId: z.string() }).parse(req.body)
-    const booking = await Booking.findOne({ _id: bookingId, customer: req.user!.id, bookingStatus: 'PENDING', holdExpiresAt: { $gt: new Date() } })
+    const booking = await Booking.findOne({
+      _id: bookingId,
+      customer: req.user!.id,
+      bookingStatus: 'PENDING',
+      holdExpiresAt: { $gt: new Date() },
+    })
     if (!booking) throw new AppError('Booking hold expired or not found.', 404)
 
-    const razorpay = getRazorpay()
-    if (!razorpay) {
+    const { PAYU_KEY, PAYU_SALT } = process.env
+    if (!PAYU_KEY || !PAYU_SALT) {
       res.status(503).json({ message: 'Payment integration is not configured. Please contact support.' })
       return
     }
 
-    const idempotencyKey = uuidv4()
-    const order = await razorpay.orders.create({
-      amount: Math.round(booking.fareBreakdown.total * 100),
-      currency: 'INR',
-      receipt: booking.bookingRef,
-      notes: { bookingId: booking._id.toString(), customerId: req.user!.id },
-    })
+    const txnid = `PK${Date.now()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`
+    const amount = booking.fareBreakdown.total.toFixed(2)
+    const productinfo = `Papikondalu Trip - ${booking.bookingRef}`
+    const firstname = booking.leadPassengerName.split(' ')[0]
+    const email = booking.leadPassengerEmail
+
+    const hash = payuRequestHash(PAYU_KEY, txnid, amount, productinfo, firstname, email, PAYU_SALT)
 
     await Payment.create({
       booking: booking._id,
-      gatewayOrderId: order.id,
+      gatewayOrderId: txnid,
       amount: booking.fareBreakdown.total,
       currency: 'INR',
-      idempotencyKey,
+      idempotencyKey: uuidv4(),
+      metadata: { firstname, email, amount, productinfo },
     })
 
     res.json({
-      orderId: order.id,
-      amount: order.amount,
-      currency: order.currency,
-      keyId: process.env.RAZORPAY_KEY_ID,
+      txnid,
+      amount,
+      productinfo,
+      key: PAYU_KEY,
+      hash,
+      firstname,
+      email,
+      phone: booking.leadPassengerPhone,
     })
   } catch (err) { next(err) }
 }
 
 export async function verifyPayment(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, bookingId } = z.object({
-      razorpay_order_id: z.string(), razorpay_payment_id: z.string(),
-      razorpay_signature: z.string(), bookingId: z.string(),
+    const { txnid, mihpayid, txnStatus, hash: responseHash, bookingId } = z.object({
+      txnid: z.string(),
+      mihpayid: z.string(),
+      txnStatus: z.string(),
+      hash: z.string(),
+      bookingId: z.string(),
     }).parse(req.body)
 
-    const secret = process.env.RAZORPAY_KEY_SECRET
-    if (!secret) throw new AppError('Payment integration not configured', 503)
+    const { PAYU_KEY, PAYU_SALT } = process.env
+    if (!PAYU_KEY || !PAYU_SALT) throw new AppError('Payment integration not configured', 503)
 
-    const expectedSig = crypto.createHmac('sha256', secret)
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-      .digest('hex')
-
-    if (expectedSig !== razorpay_signature) throw new AppError('Payment signature verification failed', 400)
-
-    const payment = await Payment.findOne({ gatewayOrderId: razorpay_order_id })
+    const payment = await Payment.findOne({ gatewayOrderId: txnid })
     if (!payment) throw new AppError('Payment record not found', 404)
+
+    const { firstname, email, amount, productinfo } = payment.metadata as Record<string, string>
+    const status = txnStatus.toLowerCase()
+    const expectedHash = payuResponseHash(PAYU_SALT, status, txnid, amount, productinfo, firstname, email, PAYU_KEY)
+
+    if (expectedHash !== responseHash) throw new AppError('Payment signature verification failed', 400)
+    if (status !== 'success') throw new AppError(`Payment ${status}`, 400)
 
     const booking = await Booking.findOne({ _id: bookingId, customer: req.user!.id })
     if (!booking) throw new AppError('Booking not found', 404)
 
-    payment.gatewayPaymentId = razorpay_payment_id
-    payment.gatewaySignature = razorpay_signature
+    payment.gatewayPaymentId = mihpayid
+    payment.gatewaySignature = responseHash
     payment.status = 'CAPTURED'
     await payment.save()
 
@@ -94,21 +112,30 @@ export async function verifyPayment(req: AuthRequest, res: Response, next: NextF
     const ticketPayload = JSON.stringify({ bookingRef: booking.bookingRef, bookingId: booking._id.toString() })
     await Ticket.create({ booking: booking._id, qrPayload: ticketPayload })
 
-    logger.info('Payment verified and booking confirmed', { bookingRef: booking.bookingRef })
+    logger.info('PayU payment verified and booking confirmed', { bookingRef: booking.bookingRef })
     res.json({ message: 'Payment verified. Booking confirmed!', bookingRef: booking.bookingRef })
   } catch (err) { next(err) }
 }
 
 export async function webhook(req: Request, res: Response): Promise<void> {
-  const sig = req.headers['x-razorpay-signature'] as string
-  const secret = process.env.RAZORPAY_WEBHOOK_SECRET
-  if (!secret) { res.status(200).json({ received: true }); return }
-
   try {
-    const expectedSig = crypto.createHmac('sha256', secret).update(req.body as Buffer).digest('hex')
-    if (sig !== expectedSig) { res.status(400).json({ message: 'Invalid signature' }); return }
-    const event = JSON.parse((req.body as Buffer).toString())
-    logger.info('Razorpay webhook received', { eventId: event.id, type: event.event })
+    const { PAYU_KEY, PAYU_SALT } = process.env
+    if (!PAYU_SALT || !PAYU_KEY) { res.status(200).json({ received: true }); return }
+
+    const body = req.body as Record<string, string>
+    const { txnid, amount, productinfo, firstname, email, txnStatus, hash: responseHash } = body
+
+    if (txnid && responseHash) {
+      const status = (txnStatus || '').toLowerCase()
+      const expectedHash = payuResponseHash(PAYU_SALT, status, txnid, amount, productinfo, firstname, email, PAYU_KEY)
+      if (expectedHash !== responseHash) {
+        logger.warn('PayU webhook invalid signature', { txnid })
+        res.status(400).json({ message: 'Invalid signature' })
+        return
+      }
+      logger.info('PayU webhook received', { txnid, status })
+    }
+
     res.status(200).json({ received: true })
   } catch (err) {
     logger.error('Webhook processing error', { err })

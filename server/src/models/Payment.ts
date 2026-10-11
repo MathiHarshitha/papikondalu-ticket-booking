@@ -4,7 +4,7 @@ export type PaymentState = 'CREATED' | 'PENDING' | 'AUTHORIZED' | 'CAPTURED' | '
 
 export interface IPayment extends Document {
   booking: Types.ObjectId
-  gateway: 'razorpay'
+  gateway: 'payu'
   gatewayOrderId: string
   gatewayPaymentId: string | null
   gatewaySignature: string | null
@@ -21,7 +21,7 @@ export interface IPayment extends Document {
 
 const PaymentSchema = new Schema<IPayment>({
   booking: { type: Schema.Types.ObjectId, ref: 'Booking', required: true },
-  gateway: { type: String, default: 'razorpay' },
+  gateway: { type: String, default: 'payu' },
   gatewayOrderId: { type: String, required: true },
   gatewayPaymentId: { type: String, default: null },
   gatewaySignature: { type: String, default: null },

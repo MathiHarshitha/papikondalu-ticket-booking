@@ -18,7 +18,7 @@ const sections = [
   },
   {
     title: '3. Payment Data',
-    body: `We do not store your card numbers or bank account details on our servers. All payment processing is handled by Razorpay Payment Solutions Pvt. Ltd., which is PCI-DSS Level 1 certified. We retain only the payment reference ID and amount to reconcile bookings and process refunds. Razorpay's own privacy policy governs how they handle payment data.`,
+    body: `We do not store your card numbers or bank account details on our servers. All payment processing is handled by PayU Payments Pvt. Ltd., which is PCI-DSS Level 1 certified. We retain only the payment reference ID and amount to reconcile bookings and process refunds. PayU's own privacy policy governs how they handle payment data.`,
   },
   {
     title: '4. Cookies',
@@ -26,7 +26,7 @@ const sections = [
   },
   {
     title: '5. Data Sharing',
-    body: `We do not sell, rent, or broker your personal data. We share data only with: (a) Razorpay, for payment processing; (b) government authorities when required by law (e.g., Inland Waterways Authority passenger manifests); (c) SMS/email gateway providers solely to deliver booking notifications to you. All third-party processors are contractually bound to protect your data.`,
+    body: `We do not sell, rent, or broker your personal data. We share data only with: (a) PayU, for payment processing; (b) government authorities when required by law (e.g., Inland Waterways Authority passenger manifests); (c) SMS/email gateway providers solely to deliver booking notifications to you. All third-party processors are contractually bound to protect your data.`,
   },
   {
     title: '6. Data Retention',

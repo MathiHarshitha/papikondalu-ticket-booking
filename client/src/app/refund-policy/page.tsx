@@ -25,7 +25,7 @@ export default function RefundPolicyPage() {
             <h2 className="font-display text-xl font-bold text-ink mb-3">Overview</h2>
             <p className="text-ink/80 leading-relaxed text-sm">
               We aim to make the refund process as simple and transparent as possible. Refunds are issued to the original
-              payment method (UPI, card, or net banking) and processed by Razorpay. The time it takes for funds to appear
+              payment method (UPI, card, or net banking) and processed by PayU. The time it takes for funds to appear
               in your account depends on your bank's processing time, which is outside our control.
             </p>
           </div>
@@ -38,7 +38,7 @@ export default function RefundPolicyPage() {
                 <CheckCircle2 className="w-5 h-5 text-teal mt-0.5 flex-shrink-0" />
                 <div>
                   <div className="font-semibold text-ink">Refund initiated within 2 business days</div>
-                  <div className="text-muted text-sm">After your cancellation is confirmed, we raise the refund with Razorpay within 2 working days.</div>
+                  <div className="text-muted text-sm">After your cancellation is confirmed, we raise the refund with PayU within 2 working days.</div>
                 </div>
               </div>
               <div className="flex gap-4 items-start">
