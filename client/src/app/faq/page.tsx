@@ -15,7 +15,7 @@ export default function FAQPage() {
     <>
       <Navbar />
       <main className="pt-20 bg-ivory">
-        <div className="bg-river py-14 text-center text-white">
+        <div className="bg-river pt-36 pb-14 text-center text-white">
           <h1 className="font-display text-4xl font-bold mb-2">Frequently Asked Questions</h1>
           <p className="text-white/70">Everything you need to know about Papikondalu boat tours</p>
         </div>

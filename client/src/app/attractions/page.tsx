@@ -97,7 +97,7 @@ export default function AttractionsPage() {
       <Navbar />
       <main className="pt-20 bg-ivory">
         {/* Banner */}
-        <div className="relative bg-river py-16 text-center text-white">
+        <div className="relative bg-river pt-36 pb-16 text-center text-white">
           <h1 className="font-display text-4xl sm:text-5xl font-bold mb-3">Destinations Along the Godavari</h1>
           <p className="text-white/70 text-lg max-w-xl mx-auto">
             Ancient temples, dramatic gorges, forest waterfalls and remote wilderness camps —

@@ -62,7 +62,7 @@ export default function GalleryPage() {
       <Navbar />
       <main className="pt-20 bg-ink min-h-screen">
         {/* Header */}
-        <div className="bg-river py-14 text-center text-white">
+        <div className="bg-river pt-36 pb-14 text-center text-white">
           <div className="text-sunset font-semibold text-sm uppercase tracking-wider mb-2">Photo Gallery</div>
           <h1 className="font-display text-4xl sm:text-5xl font-bold mb-3">Papikondalu in Pictures</h1>
           <p className="text-white/70 text-lg max-w-xl mx-auto">

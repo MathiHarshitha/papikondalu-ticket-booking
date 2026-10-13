@@ -21,19 +21,22 @@ const loginSchema = z.object({
 })
 
 function issueToken(userId: string, role: string, email: string): string {
+  const secret = process.env.JWT_ACCESS_SECRET
+  if (!secret) throw new Error('JWT_ACCESS_SECRET is not configured')
   return jwt.sign(
     { id: userId, role, email },
-    process.env.JWT_ACCESS_SECRET || 'fallback_secret',
-    { expiresIn: (process.env.JWT_ACCESS_EXPIRES_IN || '15m') as any }
+    secret,
+    { expiresIn: (process.env.JWT_ACCESS_EXPIRES_IN || '7d') as any }
   )
 }
 
 function setCookieToken(res: Response, token: string): void {
+  const isProd = process.env.NODE_ENV === 'production'
   res.cookie(process.env.COOKIE_NAME || 'papikondalu_session', token, {
     httpOnly: true,
-    secure: process.env.COOKIE_SECURE === 'true',
-    sameSite: (process.env.COOKIE_SAME_SITE as 'lax' | 'strict' | 'none') || 'lax',
-    maxAge: 15 * 60 * 1000,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
     path: '/',
   })
 }

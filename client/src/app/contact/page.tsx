@@ -22,7 +22,7 @@ export default function ContactPage() {
       <Navbar />
       <main className="pt-20 bg-ivory min-h-screen">
         {/* Banner */}
-        <div className="bg-river py-16 text-center text-white">
+        <div className="bg-river pt-36 pb-16 text-center text-white">
           <div className="text-sunset font-semibold text-sm uppercase tracking-wider mb-2">Get In Touch</div>
           <h1 className="font-display text-4xl font-bold mb-3">Contact Us</h1>
           <p className="text-white/70 text-lg">We&apos;re available 6:00 AM – 10:00 PM daily</p>

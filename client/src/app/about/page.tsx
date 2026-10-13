@@ -25,7 +25,7 @@ export default function AboutPage() {
       <Navbar />
       <main className="pt-20 bg-ivory">
         {/* Hero */}
-        <div className="relative bg-river py-20 overflow-hidden">
+        <div className="relative bg-river pt-36 pb-16 overflow-hidden">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-white relative z-10">
             <div className="text-sunset font-semibold text-sm uppercase tracking-wider mb-3">Our Story</div>
             <h1 className="font-display text-4xl sm:text-5xl font-bold mb-4">Two Decades on the Godavari</h1>

@@ -1,8 +1,12 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Menu, X, Phone, ChevronDown } from 'lucide-react'
+import { Menu, X, Phone, ChevronDown, UserCircle, LogOut } from 'lucide-react'
+
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api/v1'
+
+interface AuthUser { id: string; name: string; email: string; role: string }
 
 const navLinks = [
   { label: 'Home', href: '/' },
@@ -23,12 +27,39 @@ export default function Navbar() {
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [dropdown, setDropdown] = useState<string | null>(null)
+  const [user, setUser] = useState<AuthUser | null>(null)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const profileRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20)
     window.addEventListener('scroll', onScroll)
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
+
+  useEffect(() => {
+    fetch(`${API}/auth/me`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => d?.user && setUser(d.user))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleLogout = async () => {
+    await fetch(`${API}/auth/logout`, { method: 'POST', credentials: 'include' })
+    setUser(null)
+    setProfileOpen(false)
+    window.location.href = '/'
+  }
 
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
@@ -104,9 +135,37 @@ export default function Navbar() {
           <Link href="/packages" className="btn-primary text-sm px-4 py-2">
             Book Now
           </Link>
-          <Link href="/login" className={`text-sm font-medium ${scrolled ? 'text-ink/70 hover:text-ink' : 'text-white/70 hover:text-white'} transition-colors`}>
-            Login
-          </Link>
+          {user ? (
+            <div className="relative" ref={profileRef}>
+              <button
+                onClick={() => setProfileOpen(p => !p)}
+                className={`flex items-center gap-2 text-sm font-medium ${scrolled ? 'text-ink hover:text-teal' : 'text-white/90 hover:text-white'} transition-colors`}
+              >
+                <UserCircle className="w-7 h-7" />
+                <span className="max-w-[100px] truncate">{user.name.split(' ')[0]}</span>
+              </button>
+              {profileOpen && (
+                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50">
+                  <div className="px-4 py-2 border-b border-gray-100">
+                    <div className="text-sm font-semibold text-ink truncate">{user.name}</div>
+                    <div className="text-xs text-muted truncate">{user.email}</div>
+                  </div>
+                  <Link href="/account" onClick={() => setProfileOpen(false)} className="block px-4 py-2.5 text-sm text-ink hover:bg-teal/5 hover:text-teal transition-colors">My Bookings</Link>
+                  <Link href="/account/tickets" onClick={() => setProfileOpen(false)} className="block px-4 py-2.5 text-sm text-ink hover:bg-teal/5 hover:text-teal transition-colors">My Tickets</Link>
+                  {(user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') && (
+                    <Link href="/admin" onClick={() => setProfileOpen(false)} className="block px-4 py-2.5 text-sm text-ink hover:bg-teal/5 hover:text-teal transition-colors">Admin Panel</Link>
+                  )}
+                  <button onClick={handleLogout} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                    <LogOut className="w-4 h-4" /> Logout
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Link href="/login" className={`text-sm font-medium ${scrolled ? 'text-ink/70 hover:text-ink' : 'text-white/70 hover:text-white'} transition-colors`}>
+              Login
+            </Link>
+          )}
         </div>
 
         {/* Mobile hamburger */}
@@ -139,6 +198,20 @@ export default function Navbar() {
               <Link href="/packages" onClick={() => setOpen(false)} className="btn-primary w-full justify-center text-sm">
                 Book Now
               </Link>
+              {user ? (
+                <>
+                  <Link href="/account" onClick={() => setOpen(false)} className="block px-4 py-2.5 text-sm font-medium text-ink hover:text-teal">
+                    <UserCircle className="inline w-4 h-4 mr-2" />{user.name}
+                  </Link>
+                  <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 font-medium">
+                    <LogOut className="w-4 h-4" /> Logout
+                  </button>
+                </>
+              ) : (
+                <Link href="/login" onClick={() => setOpen(false)} className="block px-4 py-2.5 text-sm font-medium text-ink hover:text-teal">
+                  Login
+                </Link>
+              )}
             </div>
           </div>
         </div>

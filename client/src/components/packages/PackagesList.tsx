@@ -248,12 +248,29 @@ export default function PackagesList() {
                   ) : (
                     <div className="text-sm text-muted italic mb-3">Contact for pricing</div>
                   )}
-                  <Link
-                    href={`/packages/${pkg.slug}`}
-                    className="w-full flex items-center justify-center gap-2 bg-river text-white text-sm font-semibold py-2.5 rounded-lg hover:bg-teal transition-colors"
-                  >
-                    View Details <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
+                  <div className="flex gap-2">
+                    <Link
+                      href={`/packages/${pkg.slug}`}
+                      className="flex-1 flex items-center justify-center gap-1.5 border border-river text-river text-sm font-semibold py-2.5 rounded-lg hover:bg-river/5 transition-colors"
+                    >
+                      View Details
+                    </Link>
+                    {pkg.price ? (
+                      <Link
+                        href={`/book?package=${pkg.slug}`}
+                        className="flex-1 flex items-center justify-center gap-1.5 bg-river text-white text-sm font-semibold py-2.5 rounded-lg hover:bg-teal transition-colors"
+                      >
+                        Book Now
+                      </Link>
+                    ) : (
+                      <Link
+                        href="/contact"
+                        className="flex-1 flex items-center justify-center gap-1.5 bg-teal text-white text-sm font-semibold py-2.5 rounded-lg hover:bg-river transition-colors"
+                      >
+                        Enquire
+                      </Link>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

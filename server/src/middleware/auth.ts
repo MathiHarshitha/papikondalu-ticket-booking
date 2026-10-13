@@ -10,7 +10,9 @@ export function authenticate(req: AuthRequest, res: Response, next: NextFunction
   const token = req.cookies?.[process.env.COOKIE_NAME || 'papikondalu_session']
   if (!token) { res.status(401).json({ message: 'Authentication required' }); return }
   try {
-    const payload = jwt.verify(token, process.env.JWT_ACCESS_SECRET || 'fallback_secret') as { id: string; role: UserRole; email: string }
+    const secret = process.env.JWT_ACCESS_SECRET
+    if (!secret) { res.status(503).json({ message: 'Server configuration error' }); return }
+    const payload = jwt.verify(token, secret) as { id: string; role: UserRole; email: string }
     req.user = payload
     next()
   } catch {

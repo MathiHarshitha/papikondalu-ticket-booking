@@ -5,52 +5,115 @@ import Booking from '../models/Booking'
 import Departure from '../models/Departure'
 import Ticket from '../models/Ticket'
 import Package from '../models/Package'
+import Boat from '../models/Boat'
 import { AppError } from '../middleware/errorHandler'
 import mongoose from 'mongoose'
 
 const holdSchema = z.object({
-  departureId: z.string(),
-  adultCount: z.number().int().min(1),
-  childCount: z.number().int().min(0).default(0),
+  packageSlug: z.string(),
+  departureDate: z.string(),
+  adults: z.number().int().min(1),
+  children: z.number().int().min(0).default(0),
+  contactName: z.string().min(2),
+  contactPhone: z.string().min(7),
+  contactEmail: z.string().email(),
+  passengers: z.array(z.object({
+    name: z.string(),
+    age: z.string().optional(),
+    id: z.string().optional(),
+  })).optional(),
 })
 
 export async function holdSeats(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   const session = await mongoose.startSession()
   try {
-    const { departureId, adultCount, childCount } = holdSchema.parse(req.body)
-    const totalSeats = adultCount + childCount
+    const { packageSlug, departureDate, adults, children, contactName, contactPhone, contactEmail, passengers } = holdSchema.parse(req.body)
+    const totalSeats = adults + children
 
     const result = await session.withTransaction(async () => {
-      const dep = await Departure.findOneAndUpdate(
-        { _id: departureId, status: 'SCHEDULED', $expr: { $lte: [{ $add: ['$confirmedSeats', '$heldSeats', totalSeats] }, '$totalCapacity'] } },
+      const pkg = await Package.findOne({ slug: packageSlug }).lean().session(session)
+      if (!pkg) throw new AppError('Package not found', 404)
+
+      const depDate = new Date(departureDate + 'T00:00:00')
+      const nextDay = new Date(depDate.getTime() + 24 * 60 * 60 * 1000)
+
+      // Find an existing scheduled departure for this package+date, or create one
+      let dep = await Departure.findOneAndUpdate(
+        {
+          package: pkg._id,
+          departureDate: { $gte: depDate, $lt: nextDay },
+          status: 'SCHEDULED',
+          $expr: { $lte: [{ $add: ['$confirmedSeats', '$heldSeats', totalSeats] }, '$totalCapacity'] },
+        },
         { $inc: { heldSeats: totalSeats } },
         { new: true, session }
       )
-      if (!dep) throw new AppError('Departure not available or insufficient capacity', 409)
 
-      const pkg = await Package.findById(dep.package).lean().session(session)
-      if (!pkg) throw new AppError('Package not found', 404)
+      if (!dep) {
+        // Auto-create a departure for this date (uses first available boat)
+        const boat = await Boat.findOne().lean().session(session)
+        if (!boat) throw new AppError('No boats available. Please contact us to book this date.', 409)
 
-      const adultPrice = pkg.adultPrice || 0
-      const childPrice = pkg.childPrice || 0
-      const total = adultCount * adultPrice + childCount * childPrice
+        const capacity = (boat as any).capacity ?? pkg.maxCapacity
+        if (totalSeats > capacity) throw new AppError('Requested seats exceed boat capacity', 409)
 
-      const booking = await Booking.create([{
+        const [created] = await Departure.create([{
+          package: pkg._id,
+          boat: (boat as any)._id,
+          departureDate: depDate,
+          departureTime: '06:00',
+          boardingLocation: pkg.departureLocations?.[0] ?? 'Rajahmundry',
+          totalCapacity: capacity,
+          confirmedSeats: 0,
+          heldSeats: totalSeats,
+          status: 'SCHEDULED',
+        }], { session })
+        dep = created
+      }
+
+      const adultPrice = pkg.adultPrice ?? 0
+      const childPrice = pkg.childPrice ?? adultPrice
+      const subtotal = adults * adultPrice + children * childPrice
+      const tax = Math.round(subtotal * 0.05)
+      const total = subtotal + tax
+
+      const passengerList = (passengers ?? []).map((p, i) => ({
+        name: p.name,
+        ageCategory: i < adults ? 'adult' : 'child',
+      }))
+
+      const [booking] = await Booking.create([{
         customer: req.user!.id,
-        package: dep.package,
-        departure: departureId,
-        adultCount, childCount,
-        leadPassengerName: '', leadPassengerPhone: '', leadPassengerEmail: '',
-        fareBreakdown: { adultPrice, childPrice, adultTotal: adultCount * adultPrice, childTotal: childCount * childPrice, tax: 0, total },
-        packageSnapshot: { title: pkg.title, duration: pkg.duration, departureDate: dep.departureDate, boardingLocation: dep.boardingLocation },
+        package: pkg._id,
+        departure: dep._id,
+        adultCount: adults,
+        childCount: children,
+        leadPassengerName: contactName,
+        leadPassengerPhone: contactPhone,
+        leadPassengerEmail: contactEmail,
+        passengers: passengerList,
+        fareBreakdown: {
+          adultPrice,
+          childPrice,
+          adultTotal: adults * adultPrice,
+          childTotal: children * childPrice,
+          tax,
+          total,
+        },
+        packageSnapshot: {
+          title: pkg.title,
+          duration: pkg.duration,
+          departureDate: depDate,
+          boardingLocation: dep.boardingLocation,
+        },
         bookingStatus: 'PENDING',
         holdExpiresAt: new Date(Date.now() + 15 * 60 * 1000),
       }], { session })
 
-      return { booking: booking[0], fareTotal: total }
+      return { booking, fareTotal: total }
     })
 
-    res.status(201).json({ booking: result.booking, fareTotal: result.fareTotal })
+    res.status(201).json({ bookingId: result.booking._id, fareTotal: result.fareTotal })
   } catch (err) { next(err) } finally { session.endSession() }
 }
 
@@ -59,7 +122,7 @@ const bookingSchema = z.object({
   leadPassengerName: z.string().min(2),
   leadPassengerPhone: z.string().min(7),
   leadPassengerEmail: z.string().email(),
-  passengers: z.array(z.object({ name: z.string(), ageCategory: z.enum(['adult','child']) })).optional(),
+  passengers: z.array(z.object({ name: z.string(), ageCategory: z.enum(['adult', 'child']) })).optional(),
   specialRequests: z.string().optional(),
 })
 
