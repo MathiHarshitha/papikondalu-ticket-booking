@@ -49,6 +49,7 @@ function BookingWizard({ initSlug }: { initSlug: string }) {
   const [payLoading, setPayLoading] = useState(false)
   const [payError, setPayError] = useState('')
   const [bookingRef, setBookingRef] = useState('')
+  const [authUser, setAuthUser] = useState<{ name: string; email: string; phone: string } | null>(null)
 
   const totalGuests = adults + children
   const subtotal = pkg ? pkg.price * totalGuests : 0
@@ -59,7 +60,12 @@ function BookingWizard({ initSlug }: { initSlug: string }) {
   useEffect(() => {
     fetch(`${API}/auth/me`, { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.user) setContact({ name: d.user.name ?? '', phone: d.user.phone ?? '', email: d.user.email ?? '' }) })
+      .then(d => {
+        if (d?.user) {
+          setAuthUser({ name: d.user.name ?? '', email: d.user.email ?? '', phone: d.user.phone ?? '' })
+          setContact({ name: d.user.name ?? '', phone: d.user.phone ?? '', email: d.user.email ?? '' })
+        }
+      })
       .catch(() => {})
       .finally(() => setProfileLoaded(true))
   }, [])
@@ -286,7 +292,15 @@ function BookingWizard({ initSlug }: { initSlug: string }) {
             <div className="bg-amber-50 rounded-xl p-3 text-xs text-amber-800 mb-4">
               ⏰ Free cancellation up to 48 hrs before departure. 50% charge within 24–48 hrs. No refund within 24 hrs.
             </div>
-            <button onClick={() => setStep(4)} className="btn-primary w-full justify-center text-base py-3">
+            <button
+              onClick={() => {
+                if (!authUser) {
+                  window.location.href = `/login?redirect=${encodeURIComponent('/book' + window.location.search)}`
+                  return
+                }
+                setStep(4)
+              }}
+              className="btn-primary w-full justify-center text-base py-3">
               <CreditCard className="w-5 h-5" /> Pay ₹{total.toLocaleString('en-IN')}
             </button>
           </div>

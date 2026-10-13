@@ -123,17 +123,55 @@ export async function webhook(req: Request, res: Response): Promise<void> {
     if (!PAYU_SALT || !PAYU_KEY) { res.status(200).json({ received: true }); return }
 
     const body = req.body as Record<string, string>
-    const { txnid, amount, productinfo, firstname, email, txnStatus, hash: responseHash } = body
+    const { txnid, mihpayid, amount, productinfo, firstname, email, txnStatus, hash: responseHash } = body
 
-    if (txnid && responseHash) {
-      const status = (txnStatus || '').toLowerCase()
-      const expectedHash = payuResponseHash(PAYU_SALT, status, txnid, amount, productinfo, firstname, email, PAYU_KEY)
-      if (expectedHash !== responseHash) {
-        logger.warn('PayU webhook invalid signature', { txnid })
-        res.status(400).json({ message: 'Invalid signature' })
-        return
+    if (!txnid || !responseHash) { res.status(200).json({ received: true }); return }
+
+    const status = (txnStatus || '').toLowerCase()
+    const expectedHash = payuResponseHash(PAYU_SALT, status, txnid, amount, productinfo, firstname, email, PAYU_KEY)
+    if (expectedHash !== responseHash) {
+      logger.warn('PayU webhook invalid signature', { txnid })
+      res.status(400).json({ message: 'Invalid signature' })
+      return
+    }
+
+    logger.info('PayU webhook received', { txnid, status })
+
+    // Idempotency: skip if already processed
+    const payment = await Payment.findOne({ gatewayOrderId: txnid })
+    if (!payment) { res.status(200).json({ received: true }); return }
+
+    if (payment.status === 'CAPTURED') {
+      res.status(200).json({ received: true }); return
+    }
+
+    if (status === 'success' && payment.status !== 'CAPTURED') {
+      payment.gatewayPaymentId = mihpayid || payment.gatewayPaymentId
+      payment.status = 'CAPTURED'
+      await payment.save()
+
+      const booking = await Booking.findById(payment.booking)
+      if (booking && booking.bookingStatus !== 'CONFIRMED') {
+        booking.bookingStatus = 'CONFIRMED'
+        booking.paymentStatus = 'CAPTURED'
+        booking.holdExpiresAt = null
+        await booking.save()
+
+        await Departure.findByIdAndUpdate(booking.departure, {
+          $inc: { confirmedSeats: booking.adultCount + booking.childCount, heldSeats: -(booking.adultCount + booking.childCount) }
+        })
+
+        const existingTicket = await Ticket.findOne({ booking: booking._id })
+        if (!existingTicket) {
+          const ticketPayload = JSON.stringify({ bookingRef: booking.bookingRef, bookingId: booking._id.toString() })
+          await Ticket.create({ booking: booking._id, qrPayload: ticketPayload, contactName: booking.leadPassengerName })
+        }
+        logger.info('Webhook: booking confirmed via IPN', { bookingRef: booking.bookingRef })
       }
-      logger.info('PayU webhook received', { txnid, status })
+    } else if (['failure', 'failed'].includes(status)) {
+      payment.status = 'FAILED'
+      await payment.save()
+      await Booking.findByIdAndUpdate(payment.booking, { paymentStatus: 'FAILED' })
     }
 
     res.status(200).json({ received: true })

@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { usePathname } from 'next/navigation'
 import { Menu, X, Phone, ChevronDown, UserCircle, LogOut } from 'lucide-react'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api/v1'
@@ -24,12 +25,18 @@ const navLinks = [
 ]
 
 export default function Navbar() {
+  const pathname = usePathname()
+  const isHomePage = pathname === '/'
+
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [dropdown, setDropdown] = useState<string | null>(null)
   const [user, setUser] = useState<AuthUser | null>(null)
   const [profileOpen, setProfileOpen] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
+
+  // Transparent hero only on homepage; solid on all other pages
+  const transparent = isHomePage && !scrolled
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20)
@@ -63,7 +70,7 @@ export default function Navbar() {
 
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-      scrolled ? 'bg-white shadow-md py-2' : 'bg-transparent py-4'
+      transparent ? 'bg-transparent py-4' : 'bg-white shadow-md py-2'
     }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
         {/* Logo */}
@@ -77,10 +84,10 @@ export default function Navbar() {
             />
           </div>
           <div className="leading-tight">
-            <div className={`font-display font-bold text-sm leading-none ${scrolled ? 'text-river' : 'text-white'}`}>
+            <div className={`font-display font-bold text-sm leading-none ${transparent ? 'text-white' : 'text-river'}`}>
               Aswini Godavari
             </div>
-            <div className={`text-xs font-medium ${scrolled ? 'text-teal' : 'text-white/80'}`}>
+            <div className={`text-xs font-medium ${transparent ? 'text-white/80' : 'text-teal'}`}>
               Travel & Tourism
             </div>
           </div>
@@ -98,9 +105,9 @@ export default function Navbar() {
               <Link
                 href={link.href}
                 className={`flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150 ${
-                  scrolled
-                    ? 'text-ink hover:text-teal hover:bg-teal/5'
-                    : 'text-white/90 hover:text-white hover:bg-white/10'
+                  transparent
+                    ? 'text-white/90 hover:text-white hover:bg-white/10'
+                    : 'text-ink hover:text-teal hover:bg-teal/5'
                 }`}
               >
                 {link.label}
@@ -127,7 +134,7 @@ export default function Navbar() {
         <div className="hidden lg:flex items-center gap-3">
           <a
             href="tel:+919848323488"
-            className={`flex items-center gap-1.5 text-sm font-medium ${scrolled ? 'text-teal' : 'text-white/90'}`}
+            className={`flex items-center gap-1.5 text-sm font-medium ${transparent ? 'text-white/90' : 'text-teal'}`}
           >
             <Phone className="w-4 h-4" />
             +91 98483 23488
@@ -139,7 +146,7 @@ export default function Navbar() {
             <div className="relative" ref={profileRef}>
               <button
                 onClick={() => setProfileOpen(p => !p)}
-                className={`flex items-center gap-2 text-sm font-medium ${scrolled ? 'text-ink hover:text-teal' : 'text-white/90 hover:text-white'} transition-colors`}
+                className={`flex items-center gap-2 text-sm font-medium ${transparent ? 'text-white/90 hover:text-white' : 'text-ink hover:text-teal'} transition-colors`}
               >
                 <UserCircle className="w-7 h-7" />
                 <span className="max-w-[100px] truncate">{user.name.split(' ')[0]}</span>
@@ -162,7 +169,7 @@ export default function Navbar() {
               )}
             </div>
           ) : (
-            <Link href="/login" className={`text-sm font-medium ${scrolled ? 'text-ink/70 hover:text-ink' : 'text-white/70 hover:text-white'} transition-colors`}>
+            <Link href="/login" className={`text-sm font-medium ${transparent ? 'text-white/70 hover:text-white' : 'text-ink/70 hover:text-ink'} transition-colors`}>
               Login
             </Link>
           )}
@@ -171,7 +178,7 @@ export default function Navbar() {
         {/* Mobile hamburger */}
         <button
           onClick={() => setOpen(!open)}
-          className={`lg:hidden p-2 rounded-lg ${scrolled ? 'text-ink' : 'text-white'}`}
+          className={`lg:hidden p-2 rounded-lg ${transparent ? 'text-white' : 'text-ink'}`}
           aria-label="Toggle menu"
         >
           {open ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}

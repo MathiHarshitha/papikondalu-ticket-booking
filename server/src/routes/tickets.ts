@@ -8,19 +8,19 @@ const router = Router()
 // Customer: get my tickets
 router.get('/my', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const bookings = await Booking.find({ user: req.user!.id }).select('_id').lean()
+    const bookings = await Booking.find({ customer: req.user!.id }).select('_id').lean()
     const bookingIds = bookings.map(b => b._id)
     const tickets = await Ticket.find({ booking: { $in: bookingIds } })
-      .populate('booking', 'bookingRef packageSnapshot departureDate totalPassengers')
+      .populate('booking', 'bookingRef packageSnapshot adultCount childCount')
       .sort({ createdAt: -1 })
       .lean()
     const formatted = tickets.map((t: any) => ({
       ticketId: t.ticketId,
       bookingRef: t.booking?.bookingRef,
-      packageName: t.booking?.packageSnapshot?.name,
-      departureDate: t.booking?.departureDate,
-      passengers: t.booking?.totalPassengers,
-      departurePoint: t.booking?.departurePoint ?? 'Rajahmundry',
+      packageName: t.booking?.packageSnapshot?.title,
+      departureDate: t.booking?.packageSnapshot?.departureDate,
+      passengers: (t.booking?.adultCount ?? 0) + (t.booking?.childCount ?? 0),
+      departurePoint: t.booking?.packageSnapshot?.boardingLocation ?? 'Rajahmundry',
       status: t.checkedIn ? 'CHECKED_IN' : 'VALID',
       qrPayload: t.qrPayload,
     }))
@@ -37,7 +37,7 @@ router.post('/checkin', authenticate, requireRole('CHECKIN_STAFF', 'ADMIN', 'SUP
     if (!ticketId) return res.status(400).json({ message: 'ticketId is required' })
 
     const ticket: any = await Ticket.findOne({ ticketId })
-      .populate('booking', 'bookingRef packageSnapshot departureDate totalPassengers')
+      .populate('booking', 'bookingRef packageSnapshot adultCount childCount')
 
     if (!ticket) return res.status(404).json({ message: 'Ticket not found. Check the ID and try again.' })
 
@@ -55,9 +55,9 @@ router.post('/checkin', authenticate, requireRole('CHECKIN_STAFF', 'ADMIN', 'SUP
       ticket: {
         ticketId: ticket.ticketId,
         bookingRef: bk?.bookingRef,
-        packageName: bk?.packageSnapshot?.name,
-        departureDate: bk?.departureDate,
-        passengers: bk?.totalPassengers,
+        packageName: bk?.packageSnapshot?.title,
+        departureDate: bk?.packageSnapshot?.departureDate,
+        passengers: (bk?.adultCount ?? 0) + (bk?.childCount ?? 0),
         contactName: ticket.contactName,
         alreadyCheckedIn,
       },

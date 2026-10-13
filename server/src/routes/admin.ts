@@ -16,8 +16,8 @@ router.get('/metrics', async (req, res) => {
       totalUsers, totalPackages
     ] = await Promise.all([
       Booking.countDocuments(),
-      Booking.countDocuments({ status: 'CONFIRMED' }),
-      Booking.aggregate([{ $match: { status: { $in: ['CONFIRMED', 'COMPLETED'] } } }, { $group: { _id: null, total: { $sum: '$totalFare' } } }]),
+      Booking.countDocuments({ bookingStatus: 'CONFIRMED' }),
+      Booking.aggregate([{ $match: { bookingStatus: { $in: ['CONFIRMED', 'COMPLETED'] } } }, { $group: { _id: null, total: { $sum: '$fareBreakdown.total' } } }]),
       Refund.countDocuments({ status: 'REQUESTED' }),
       User.countDocuments({ role: 'CUSTOMER' }),
       Package.countDocuments({ isPublished: true }),
@@ -57,8 +57,8 @@ router.get('/refunds', async (req, res) => {
   try {
     const refunds = await Refund.find()
       .populate('booking', 'bookingRef packageSnapshot')
-      .populate('user', 'name email')
-      .sort({ requestedAt: -1 })
+      .populate('requestedBy', 'name email')
+      .sort({ createdAt: -1 })
       .limit(200)
       .lean()
     res.json({ refunds })

@@ -7,18 +7,17 @@ const router = Router()
 // Customer: list my refunds
 router.get('/my', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const refunds = await Refund.find({ user: req.user!.id })
+    const refunds = await Refund.find({ requestedBy: req.user!.id })
       .populate('booking', 'bookingRef')
-      .sort({ requestedAt: -1 })
+      .sort({ createdAt: -1 })
       .lean()
     const formatted = refunds.map((r: any) => ({
       _id: r._id,
       bookingRef: r.booking?.bookingRef ?? '—',
-      amount: r.amount,
+      amount: r.requestedAmount,
       status: r.status,
-      requestedAt: r.requestedAt,
+      requestedAt: r.createdAt,
       processedAt: r.processedAt,
-      utr: r.utr,
     }))
     res.json({ refunds: formatted })
   } catch (err: any) {
@@ -31,18 +30,18 @@ router.get('/', authenticate, requireRole('BOOKING_MANAGER', 'ADMIN', 'SUPER_ADM
   try {
     const refunds = await Refund.find()
       .populate('booking', 'bookingRef packageSnapshot')
-      .populate('user', 'name email')
-      .sort({ requestedAt: -1 })
+      .populate('requestedBy', 'name email')
+      .sort({ createdAt: -1 })
       .limit(200)
       .lean()
     const formatted = refunds.map((r: any) => ({
       _id: r._id,
       bookingRef: r.booking?.bookingRef,
-      contactName: r.user?.name,
-      packageName: r.booking?.packageSnapshot?.name,
-      amount: r.amount,
+      contactName: r.requestedBy?.name,
+      packageName: r.booking?.packageSnapshot?.title,
+      amount: r.requestedAmount,
       status: r.status,
-      requestedAt: r.requestedAt,
+      requestedAt: r.createdAt,
     }))
     res.json({ refunds: formatted })
   } catch (err: any) {
