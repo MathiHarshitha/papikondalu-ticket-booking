@@ -8,7 +8,7 @@ const PORT = parseInt(process.env.PORT || '5000', 10)
 async function start(): Promise<void> {
   try {
     await connectDB()
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       logger.info(`🚀 Papikondalu API running on http://localhost:${PORT}`)
       logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`)
     })
