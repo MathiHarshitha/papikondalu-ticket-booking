@@ -9,7 +9,7 @@ Full-stack tourism website and online ticket booking platform for **Aswini Godav
 ## Quick Start
 
 ```bash
-# 1. Install all dependencies
+# 1. Install all dependencies.
 npm install
 cd client && npm install
 cd ../server && npm install
