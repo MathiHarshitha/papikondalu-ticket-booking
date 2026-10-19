@@ -20,7 +20,7 @@ cp server/.env.example server/.env
 cp client/.env.example client/.env.local
 # Edit both files with your real values
 
-# 3. Start development servers (both together)
+# 3. Start development  servers (both together)
 npm run dev
 ```
 
