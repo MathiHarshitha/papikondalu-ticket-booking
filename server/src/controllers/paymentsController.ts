@@ -145,7 +145,7 @@ export async function webhook(req: Request, res: Response): Promise<void> {
       res.status(200).json({ received: true }); return
     }
 
-    if (status === 'success' && payment.status !== 'CAPTURED') {
+    if (status === 'success') {
       payment.gatewayPaymentId = mihpayid || payment.gatewayPaymentId
       payment.status = 'CAPTURED'
       await payment.save()
