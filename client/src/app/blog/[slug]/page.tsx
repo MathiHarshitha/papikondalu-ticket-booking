@@ -20,7 +20,7 @@ const POSTS: Record<string, {
     content: [
       {
         h: 'Where the Godavari Meets the Hills',
-        p: `Papikondalu — literally "the hills of Papi" — is a 40-km gorge carved through the Eastern Ghats by the Godavari River. The gorge rises 600 to 900 metres on either side and shelters one of the last pristine sections of tropical forest on the river. Tribal communities of the Koya, Kondareddy and Valmiki peoples have inhabited these forests for centuries, and their settlements dot the steep hillsides. The experience of entering the gorge by boat from Rajahmundry or Bhadrachalam is unlike anything else in South India: the water turns dark green between the cliffs, and the forest reaches down to the waterline on both banks.`,
+        p: `Papikondalu - literally "the hills of Papi" — is a 40-km gorge carved through the Eastern Ghats by the Godavari River. The gorge rises 600 to 900 metres on either side and shelters one of the last pristine sections of tropical forest on the river. Tribal communities of the Koya, Kondareddy and Valmiki peoples have inhabited these forests for centuries, and their settlements dot the steep hillsides. The experience of entering the gorge by boat from Rajahmundry or Bhadrachalam is unlike anything else in South India: the water turns dark green between the cliffs, and the forest reaches down to the waterline on both banks.`,
       },
       {
         h: 'Best Time to Visit Papikondalu',
