@@ -73,12 +73,12 @@ export default function BookingsPage() {
                       <div className="font-display font-semibold text-ink mb-0.5">{bk.packageSnapshot?.name}</div>
                       <div className="font-mono text-sm text-muted">{bk.bookingRef}</div>
                     </div>
-                    <span className={`badge text-xs flex-shrink-0 ${STATUS_STYLE[bk.status] ?? 'bg-gray-100 text-gray-700'}`}>{bk.status.replace('_', ' ')}</span>
+                    <span className={`badge text-xs flex-shrink-0 ${STATUS_STYLE[bk.status ?? ''] ?? 'bg-gray-100 text-gray-700'}`}>{(bk.status ?? '').replace('_', ' ')}</span>
                   </div>
                   <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-muted mb-4">
                     <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" />{new Date(bk.departureDate).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'long' })}</span>
                     <span className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5" />{bk.totalPassengers} passenger{bk.totalPassengers !== 1 ? 's' : ''}</span>
-                    <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" />{bk.departurePoint}</span>
+                    <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" />{bk.departurePoint ?? '—'}</span>
                   </div>
                   <div className="flex items-center justify-between pt-3 border-t border-gray-100">
                     <div className="font-bold text-teal">₹{bk.totalFare?.toLocaleString('en-IN')}</div>
