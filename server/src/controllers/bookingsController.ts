@@ -24,11 +24,32 @@ const holdSchema = z.object({
   })).optional(),
 })
 
+/** Release heldSeats for bookings whose hold window has expired. */
+async function releaseExpiredHolds(): Promise<void> {
+  const now = new Date()
+  const expired = await Booking.find({
+    bookingStatus: 'PENDING',
+    holdExpiresAt: { $lt: now },
+  }).select('departure adultCount childCount').lean()
+
+  for (const b of expired) {
+    await Booking.updateOne({ _id: b._id }, { $set: { bookingStatus: 'EXPIRED' } })
+    await Departure.findByIdAndUpdate(b.departure, {
+      $inc: { heldSeats: -(b.adultCount + b.childCount) },
+    })
+  }
+}
+
 export async function holdSeats(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   const session = await mongoose.startSession()
   try {
     const { packageSlug, departureDate, adults, children, contactName, contactPhone, contactEmail, passengers } = holdSchema.parse(req.body)
     const totalSeats = adults + children
+
+    // Release seats from holds that have already expired so they don't
+    // permanently consume capacity.  Runs outside the transaction so that
+    // errors here do not block the new booking attempt.
+    await releaseExpiredHolds().catch(() => {})
 
     const result = await session.withTransaction(async () => {
       const pkg = await Package.findOne({ slug: packageSlug }).lean().session(session)
@@ -134,7 +155,7 @@ export async function createBooking(req: AuthRequest, res: Response, next: NextF
     booking.leadPassengerName = leadPassengerName
     booking.leadPassengerPhone = leadPassengerPhone
     booking.leadPassengerEmail = leadPassengerEmail
-    if (passengers) booking.passengers = passengers
+    if (passengers) booking.passengers = passengers as Array<{ name: string; ageCategory: 'adult' | 'child' }>
     if (specialRequests) booking.specialRequests = specialRequests
     await booking.save()
     res.json({ booking })
@@ -159,11 +180,28 @@ export async function myBookingDetail(req: AuthRequest, res: Response, next: Nex
 export async function cancelRequest(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const { reason } = z.object({ reason: z.string().min(5) }).parse(req.body)
-    const booking = await Booking.findOne({ _id: req.params.id, customer: req.user!.id, bookingStatus: 'CONFIRMED' })
+    // Atomic status transition: only one concurrent request can win this update.
+    // The bookingStatus: 'CONFIRMED' filter means the second concurrent call
+    // will match nothing (status is already CANCELLED) and returns null,
+    // preventing a double-decrement of confirmedSeats.
+    const booking = await Booking.findOneAndUpdate(
+      { _id: req.params.id, customer: req.user!.id, bookingStatus: 'CONFIRMED' },
+      {
+        $set: {
+          bookingStatus: 'CANCELLED',
+          cancellationReason: reason,
+          cancelledAt: new Date(),
+          cancelledBy: new mongoose.Types.ObjectId(req.user!.id),
+        },
+      },
+      { new: true }
+    )
     if (!booking) throw new AppError('Booking not found or not eligible for cancellation', 404)
-    booking.cancellationReason = reason
-    await booking.save()
-    res.json({ message: 'Cancellation request submitted. We will review and contact you shortly.' })
+    // Safe to decrement: the atomic findOneAndUpdate guarantees this runs at most once.
+    await Departure.findByIdAndUpdate(booking.departure, {
+      $inc: { confirmedSeats: -(booking.adultCount + booking.childCount) },
+    })
+    res.json({ message: 'Booking cancelled. Refund will be processed per our cancellation policy.' })
   } catch (err) { next(err) }
 }
 

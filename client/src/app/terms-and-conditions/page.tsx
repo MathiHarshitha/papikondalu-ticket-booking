@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 const sections = [
   {
     title: '1. Acceptance of Terms',
-    body: `By accessing bhadradripapikondalu.com and making a booking, you agree to be bound by these Terms and Conditions. If you do not agree, please do not use this platform. These terms are governed by the laws of India.`,
+    body: `By accessing papikondalutourism.com and making a booking, you agree to be bound by these Terms and Conditions. If you do not agree, please do not use this platform. These terms are governed by the laws of India.`,
   },
   {
     title: '2. Bookings and Confirmation',

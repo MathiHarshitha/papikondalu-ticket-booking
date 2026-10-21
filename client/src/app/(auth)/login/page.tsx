@@ -1,10 +1,15 @@
 'use client'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, LogIn, ArrowRight } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
 
-export default function LoginPage() {
+function LoginForm() {
+  const { setUser } = useAuth()
+  const searchParams = useSearchParams()
+  const redirect = searchParams.get('redirect') || '/account'
   const [show, setShow] = useState(false)
   const [form, setForm] = useState({ email: '', password: '' })
   const [loading, setLoading] = useState(false)
@@ -20,7 +25,15 @@ export default function LoginPage() {
       })
       const data = await res.json()
       if (!res.ok) { setError(data.message || 'Login failed'); return }
-      window.location.href = '/account'
+      if (data.user) setUser(data.user)
+      // Validate redirect using URL parser so //evil.com, /\evil.com,
+      // and encoded variants are all rejected.
+      let safe = '/account'
+      try {
+        const parsed = new URL(redirect, window.location.origin)
+        if (parsed.origin === window.location.origin) safe = parsed.pathname + parsed.search + parsed.hash
+      } catch { /* invalid URL — fall back to /account */ }
+      window.location.href = safe
     } catch {
       setError('Network error. Please try again.')
     } finally { setLoading(false) }
@@ -99,5 +112,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   )
 }

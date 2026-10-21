@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next'
 
-const BASE_URL = 'https://www.bhadradripapikondalu.com'
+const BASE_URL = 'https://www.papikondalutourism.com'
 
 const PACKAGE_SLUGS = [
   'rajahmundry-papikondalu-packages',

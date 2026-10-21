@@ -5,7 +5,8 @@ import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Check, ChevronRight, Calendar, Mail, CreditCard, Download, QrCode, ArrowLeft, AlertCircle, Loader2 } from 'lucide-react'
+import { Check, ChevronRight, Calendar, Mail, CreditCard, Download, QrCode, ArrowLeft, AlertCircle, Loader2, LogIn } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api/v1'
 
@@ -38,6 +39,7 @@ function StepIndicator({ current }: { current: number }) {
 }
 
 function BookingWizard({ initSlug }: { initSlug: string }) {
+  const { user: authUser, loading: authLoading } = useAuth()
   const [step, setStep] = useState(initSlug ? 1 : 0)
   const [pkg, setPkg] = useState(ALL_PACKAGES.find(p => p.slug === initSlug) ?? null)
   const [date, setDate] = useState('')
@@ -49,26 +51,20 @@ function BookingWizard({ initSlug }: { initSlug: string }) {
   const [payLoading, setPayLoading] = useState(false)
   const [payError, setPayError] = useState('')
   const [bookingRef, setBookingRef] = useState('')
-  const [authUser, setAuthUser] = useState<{ name: string; email: string; phone: string } | null>(null)
 
   const totalGuests = adults + children
   const subtotal = pkg ? pkg.price * totalGuests : 0
   const gst = Math.round(subtotal * 0.05)
   const total = subtotal + gst
 
-  // Pre-fill contact from logged-in user profile
+  // Pre-fill contact from logged-in user profile once auth resolves
   useEffect(() => {
-    fetch(`${API}/auth/me`, { credentials: 'include' })
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (d?.user) {
-          setAuthUser({ name: d.user.name ?? '', email: d.user.email ?? '', phone: d.user.phone ?? '' })
-          setContact({ name: d.user.name ?? '', phone: d.user.phone ?? '', email: d.user.email ?? '' })
-        }
-      })
-      .catch(() => {})
-      .finally(() => setProfileLoaded(true))
-  }, [])
+    if (authLoading) return
+    if (authUser) {
+      setContact({ name: authUser.name ?? '', phone: authUser.phone ?? '', email: authUser.email ?? '' })
+    }
+    setProfileLoaded(true)
+  }, [authUser, authLoading])
 
   // Sync passenger array with guest count
   useEffect(() => {
@@ -292,17 +288,23 @@ function BookingWizard({ initSlug }: { initSlug: string }) {
             <div className="bg-amber-50 rounded-xl p-3 text-xs text-amber-800 mb-4">
               ⏰ Free cancellation up to 48 hrs before departure. 50% charge within 24–48 hrs. No refund within 24 hrs.
             </div>
-            <button
-              onClick={() => {
-                if (!authUser) {
-                  window.location.href = `/login?redirect=${encodeURIComponent('/book' + window.location.search)}`
-                  return
-                }
-                setStep(4)
-              }}
-              className="btn-primary w-full justify-center text-base py-3">
-              <CreditCard className="w-5 h-5" /> Pay ₹{total.toLocaleString('en-IN')}
-            </button>
+            {authLoading ? (
+              <div className="btn-primary w-full justify-center text-base py-3 opacity-60 cursor-not-allowed">
+                <Loader2 className="w-4 h-4 animate-spin" /> Checking session…
+              </div>
+            ) : authUser ? (
+              <button
+                onClick={() => setStep(4)}
+                className="btn-primary w-full justify-center text-base py-3">
+                <CreditCard className="w-5 h-5" /> Pay ₹{total.toLocaleString('en-IN')}
+              </button>
+            ) : (
+              <button
+                onClick={() => { window.location.href = `/login?redirect=${encodeURIComponent('/book' + window.location.search)}` }}
+                className="btn-primary w-full justify-center text-base py-3">
+                <LogIn className="w-5 h-5" /> Sign in to Continue
+              </button>
+            )}
           </div>
         )}
 

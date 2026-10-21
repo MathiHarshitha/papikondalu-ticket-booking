@@ -4,10 +4,9 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Menu, X, Phone, ChevronDown, UserCircle, LogOut } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api/v1'
-
-interface AuthUser { id: string; name: string; email: string; role: string }
 
 const navLinks = [
   { label: 'Home', href: '/' },
@@ -28,10 +27,10 @@ export default function Navbar() {
   const pathname = usePathname()
   const isHomePage = pathname === '/'
 
+  const { user, setUser } = useAuth()
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [dropdown, setDropdown] = useState<string | null>(null)
-  const [user, setUser] = useState<AuthUser | null>(null)
   const [profileOpen, setProfileOpen] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
 
@@ -42,13 +41,6 @@ export default function Navbar() {
     const onScroll = () => setScrolled(window.scrollY > 20)
     window.addEventListener('scroll', onScroll)
     return () => window.removeEventListener('scroll', onScroll)
-  }, [])
-
-  useEffect(() => {
-    fetch(`${API}/auth/me`, { credentials: 'include' })
-      .then(r => r.ok ? r.json() : null)
-      .then(d => d?.user && setUser(d.user))
-      .catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -67,6 +59,9 @@ export default function Navbar() {
     setProfileOpen(false)
     window.location.href = '/'
   }
+
+  // Close dropdown when route changes
+  useEffect(() => { setOpen(false); setDropdown(null) }, [pathname])
 
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
