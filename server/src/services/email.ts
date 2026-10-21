@@ -1,25 +1,28 @@
-import nodemailer from 'nodemailer'
 import { logger } from '../config/logger'
 
-function createTransporter() {
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: false,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  })
-}
-
-const FROM = `"Aswini Godavari Travel & Tourism" <${process.env.EMAIL_FROM || 'bookings@papikondalutourism.com'}>`
+const FROM_NAME = 'Aswini Godavari Travel & Tourism'
+const FROM_EMAIL = process.env.EMAIL_FROM || 'bookings@papikondalutourism.com'
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000'
 
 async function send(to: string, subject: string, html: string): Promise<void> {
   try {
-    const transporter = createTransporter()
-    await transporter.sendMail({ from: FROM, to, subject, html })
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': process.env.BREVO_API_KEY || '',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: { name: FROM_NAME, email: FROM_EMAIL },
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+      }),
+    })
+    if (!response.ok) {
+      const err = await response.text()
+      throw new Error(err)
+    }
     logger.info('Email sent', { to, subject })
   } catch (err) {
     logger.error('Email send failed', { to, subject, err })
