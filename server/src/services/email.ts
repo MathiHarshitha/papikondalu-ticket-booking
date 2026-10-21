@@ -110,6 +110,9 @@ export async function sendBookingConfirmationEmail(data: BookingEmailData): Prom
       <tr style="background:#f5f7f8"><td style="padding:10px 12px;font-weight:bold;color:#444">Amount Paid</td><td style="padding:10px 12px;color:#168C8C;font-weight:bold">&#8377;${total.toLocaleString('en-IN')}</td></tr>
     </table>
     <p>Please carry a valid photo ID on the day of your trip. Show this booking reference at the boarding point.</p>
+    <p style="text-align:center;margin:24px 0">
+      <a href="${CLIENT_URL}/account/bookings" style="background:#F29B38;color:#ffffff;padding:13px 28px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:14px">View My Booking</a>
+    </p>
     <p style="color:#888888;font-size:12px;margin-top:16px">For any queries, contact us at aswinigodavari@gmail.com</p>
   `))
 }
@@ -124,6 +127,9 @@ export async function sendRefundApprovedEmail(to: string, name: string, bookingR
       <tr style="background:#f5f7f8"><td style="padding:10px 12px;font-weight:bold;color:#444">Timeline</td><td style="padding:10px 12px">5–7 business days</td></tr>
     </table>
     <p>The amount will be credited to your original payment method within 5–7 business days.</p>
+    <p style="text-align:center;margin:24px 0">
+      <a href="${CLIENT_URL}/account/refunds" style="background:#F29B38;color:#ffffff;padding:13px 28px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:14px">View Refund Status</a>
+    </p>
     <p style="color:#888888;font-size:12px;margin-top:16px">For any queries, contact us at aswinigodavari@gmail.com</p>
   `))
 }
