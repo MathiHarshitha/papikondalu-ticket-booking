@@ -7,6 +7,7 @@ import User from '../models/User'
 import { AppError } from '../middleware/errorHandler'
 import { AuthRequest } from '../middleware/auth'
 import { logger } from '../config/logger'
+import { sendVerificationEmail, sendPasswordResetEmail } from '../services/email'
 
 const registerSchema = z.object({
   name: z.string().min(2).max(100),
@@ -54,6 +55,7 @@ export async function register(req: Request, res: Response, next: NextFunction):
       emailVerifyExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
     })
     logger.info('New customer registered', { userId: user._id, email })
+    sendVerificationEmail(email, name, verifyToken).catch(() => {})
     res.status(201).json({ message: 'Account created. Please check your email to verify your account.', userId: user._id })
   } catch (err) { next(err) }
 }
@@ -108,6 +110,7 @@ export async function forgotPassword(req: Request, res: Response, next: NextFunc
       user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000)
       await user.save()
       logger.info('Password reset requested', { userId: user._id })
+      sendPasswordResetEmail(user.email, user.name, token).catch(() => {})
     }
     res.json({ message: 'If an account exists, a password reset link has been sent.' })
   } catch (err) { next(err) }

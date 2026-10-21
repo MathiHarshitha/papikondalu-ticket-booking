@@ -9,6 +9,7 @@ import Ticket from '../models/Ticket'
 import { AppError } from '../middleware/errorHandler'
 import { logger } from '../config/logger'
 import { v4 as uuidv4 } from 'uuid'
+import { sendBookingConfirmationEmail } from '../services/email'
 
 function sha512(str: string): string {
   return crypto.createHash('sha512').update(str).digest('hex')
@@ -112,6 +113,18 @@ export async function verifyPayment(req: AuthRequest, res: Response, next: NextF
     const ticketPayload = JSON.stringify({ bookingRef: booking.bookingRef, bookingId: booking._id.toString() })
     await Ticket.create({ booking: booking._id, qrPayload: ticketPayload })
 
+    sendBookingConfirmationEmail({
+      to: booking.leadPassengerEmail,
+      name: booking.leadPassengerName,
+      bookingRef: booking.bookingRef,
+      packageTitle: booking.packageSnapshot.title,
+      departureDate: booking.packageSnapshot.departureDate,
+      boardingLocation: booking.packageSnapshot.boardingLocation,
+      adultCount: booking.adultCount,
+      childCount: booking.childCount,
+      total: booking.fareBreakdown.total,
+    }).catch(() => {})
+
     logger.info('PayU payment verified and booking confirmed', { bookingRef: booking.bookingRef })
     res.json({ message: 'Payment verified. Booking confirmed!', bookingRef: booking.bookingRef })
   } catch (err) { next(err) }
@@ -165,6 +178,17 @@ export async function webhook(req: Request, res: Response): Promise<void> {
         if (!existingTicket) {
           const ticketPayload = JSON.stringify({ bookingRef: booking.bookingRef, bookingId: booking._id.toString() })
           await Ticket.create({ booking: booking._id, qrPayload: ticketPayload, contactName: booking.leadPassengerName })
+          sendBookingConfirmationEmail({
+            to: booking.leadPassengerEmail,
+            name: booking.leadPassengerName,
+            bookingRef: booking.bookingRef,
+            packageTitle: booking.packageSnapshot.title,
+            departureDate: booking.packageSnapshot.departureDate,
+            boardingLocation: booking.packageSnapshot.boardingLocation,
+            adultCount: booking.adultCount,
+            childCount: booking.childCount,
+            total: booking.fareBreakdown.total,
+          }).catch(() => {})
         }
         logger.info('Webhook: booking confirmed via IPN', { bookingRef: booking.bookingRef })
       }

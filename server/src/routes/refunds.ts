@@ -1,6 +1,9 @@
 import { Router, Response } from 'express'
 import { authenticate, requireRole, AuthRequest } from '../middleware/auth'
 import Refund from '../models/Refund'
+import User from '../models/User'
+import Booking from '../models/Booking'
+import { sendRefundApprovedEmail } from '../services/email'
 
 const router = Router()
 
@@ -57,6 +60,20 @@ router.post('/:id/approve', authenticate, requireRole('BOOKING_MANAGER', 'ADMIN'
     if (refund.status !== 'REQUESTED') return res.status(400).json({ message: `Cannot approve a refund in ${refund.status} status` })
     refund.status = 'APPROVED'
     await refund.save()
+
+    const booking = await Booking.findById(refund.booking).lean()
+    if (booking) {
+      const customer = await User.findById(refund.requestedBy).select('name email').lean()
+      if (customer) {
+        sendRefundApprovedEmail(
+          customer.email,
+          customer.name,
+          (booking as any).bookingRef,
+          refund.requestedAmount,
+        ).catch(() => {})
+      }
+    }
+
     res.json({ message: 'Refund approved', refund })
   } catch (err: any) {
     res.status(500).json({ message: err.message })
