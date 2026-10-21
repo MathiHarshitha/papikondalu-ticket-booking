@@ -207,8 +207,12 @@ export async function webhook(req: Request, res: Response): Promise<void> {
 
 export async function paymentStatus(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    const payment = await Payment.findById(req.params.id).populate('booking')
+    const payment = await Payment.findById(req.params.id).populate<{ booking: { customer: { toString(): string } } }>('booking')
     if (!payment) throw new AppError('Payment not found', 404)
+    // IDOR guard: payment must belong to the requesting user's booking
+    if (!payment.booking || payment.booking.customer.toString() !== req.user!.id) {
+      throw new AppError('Payment not found', 404)
+    }
     res.json({ status: payment.status, amount: payment.amount, currency: payment.currency })
   } catch (err) { next(err) }
 }

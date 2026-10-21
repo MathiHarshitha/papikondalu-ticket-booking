@@ -44,12 +44,14 @@ app.use(cors({
   credentials: true,
 }))
 
-// Body parsing (webhook uses raw/urlencoded body — must bypass json middleware)
+// Body parsing.
+// Webhook requires urlencoded (PayU IPN) and bypasses JSON middleware.
+// All other routes receive JSON only — deliberately NOT applying global urlencoded
+// so cross-origin form POST attacks cannot submit a parseable body (CSRF mitigation).
 app.use((req, res, next) => {
   if (req.originalUrl === '/api/v1/payments/webhook') return next()
   express.json({ limit: '2mb' })(req, res, next)
 })
-app.use(express.urlencoded({ extended: true, limit: '2mb' }))
 app.use(cookieParser())
 
 // Strict rate limiter for auth endpoints (brute-force protection)

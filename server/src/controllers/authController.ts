@@ -75,7 +75,13 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
 }
 
 export async function logout(req: Request, res: Response): Promise<void> {
-  res.clearCookie(process.env.COOKIE_NAME || 'papikondalu_session')
+  const isProd = process.env.NODE_ENV === 'production'
+  res.clearCookie(process.env.COOKIE_NAME || 'papikondalu_session', {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    path: '/',
+  })
   res.json({ message: 'Logged out successfully' })
 }
 

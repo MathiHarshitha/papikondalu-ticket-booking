@@ -38,8 +38,8 @@ router.get('/metrics', async (req, res) => {
 // All bookings (paginated)
 router.get('/bookings', async (req, res) => {
   try {
-    const page = Number(req.query.page) || 1
-    const limit = Number(req.query.limit) || 50
+    const page = Math.max(1, Number(req.query.page) || 1)
+    const limit = Math.min(Math.max(1, Number(req.query.limit) || 50), 100)
     const bookings = await Booking.find()
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
