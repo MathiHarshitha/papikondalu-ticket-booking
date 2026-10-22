@@ -133,14 +133,14 @@ async function seed(): Promise<void> {
     if (!existing) {
       await User.create({
         name: 'Super Admin',
-        email: 'admin@bhadradripapikondalu.com',
+        email: 'admin@papikondalutourism.com',
         phone: '+919848323488',
         passwordHash: await argon2.hash('ChangeThisPassword!123'),
         role: 'SUPER_ADMIN',
         isActive: true,
         emailVerified: true,
       })
-      console.log('✅ SUPER_ADMIN created — email: admin@bhadradripapikondalu.com, password: ChangeThisPassword!123')
+      console.log('✅ SUPER_ADMIN created — email: admin@papikondalutourism.com, password: ChangeThisPassword!123')
       console.log('⚠️  CHANGE THE ADMIN PASSWORD IMMEDIATELY after first login!')
     }
   }

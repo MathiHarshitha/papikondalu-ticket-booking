@@ -9,6 +9,7 @@ import Ticket from '../models/Ticket'
 import { AppError } from '../middleware/errorHandler'
 import { logger } from '../config/logger'
 import { v4 as uuidv4 } from 'uuid'
+import { sendBookingConfirmationEmail } from '../services/email'
 
 function sha512(str: string): string {
   return crypto.createHash('sha512').update(str).digest('hex')
@@ -114,6 +115,18 @@ export async function verifyPayment(req: AuthRequest, res: Response, next: NextF
     const ticketPayload = JSON.stringify({ bookingRef: booking.bookingRef, bookingId: booking._id.toString() })
     await Ticket.create({ booking: booking._id, qrPayload: ticketPayload })
 
+    sendBookingConfirmationEmail({
+      to: booking.leadPassengerEmail,
+      name: booking.leadPassengerName,
+      bookingRef: booking.bookingRef,
+      packageTitle: booking.packageSnapshot.title,
+      departureDate: booking.packageSnapshot.departureDate,
+      boardingLocation: booking.packageSnapshot.boardingLocation,
+      adultCount: booking.adultCount,
+      childCount: booking.childCount,
+      total: booking.fareBreakdown.total,
+    }).catch(() => {})
+
     logger.info('PayU payment verified and booking confirmed', { bookingRef: booking.bookingRef })
     res.json({ message: 'Payment verified. Booking confirmed!', bookingRef: booking.bookingRef })
   } catch (err) { next(err) }
@@ -167,6 +180,17 @@ export async function webhook(req: Request, res: Response): Promise<void> {
         if (!existingTicket) {
           const ticketPayload = JSON.stringify({ bookingRef: booking.bookingRef, bookingId: booking._id.toString() })
           await Ticket.create({ booking: booking._id, qrPayload: ticketPayload, contactName: booking.leadPassengerName })
+          sendBookingConfirmationEmail({
+            to: booking.leadPassengerEmail,
+            name: booking.leadPassengerName,
+            bookingRef: booking.bookingRef,
+            packageTitle: booking.packageSnapshot.title,
+            departureDate: booking.packageSnapshot.departureDate,
+            boardingLocation: booking.packageSnapshot.boardingLocation,
+            adultCount: booking.adultCount,
+            childCount: booking.childCount,
+            total: booking.fareBreakdown.total,
+          }).catch(() => {})
         }
         logger.info('Webhook: booking confirmed via IPN', { bookingRef: booking.bookingRef })
       }
@@ -185,8 +209,12 @@ export async function webhook(req: Request, res: Response): Promise<void> {
 
 export async function paymentStatus(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    const payment = await Payment.findById(req.params.id).populate('booking')
+    const payment = await Payment.findById(req.params.id).populate<{ booking: { customer: { toString(): string } } }>('booking')
     if (!payment) throw new AppError('Payment not found', 404)
+    // IDOR guard: payment must belong to the requesting user's booking
+    if (!payment.booking || payment.booking.customer.toString() !== req.user!.id) {
+      throw new AppError('Payment not found', 404)
+    }
     res.json({ status: payment.status, amount: payment.amount, currency: payment.currency })
   } catch (err) { next(err) }
 }

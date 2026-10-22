@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { AuthProvider } from '@/contexts/AuthContext'
 
 export const metadata: Metadata = {
   title: {
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_IN',
-    url: 'https://www.bhadradripapikondalu.com',
+    url: 'https://www.papikondalutourism.com',
     siteName: 'Papikondalu Tourism',
     images: [{
       url: 'https://res.cloudinary.com/dnz1dmnmb/image/upload/v1755976642/1b45e060-bfee-4be1-85f4-51c2c6430c70_itqkts.jpg',
@@ -34,7 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap" rel="stylesheet" />
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased"><AuthProvider>{children}</AuthProvider></body>
     </html>
   )
 }

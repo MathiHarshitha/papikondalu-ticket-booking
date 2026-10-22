@@ -64,7 +64,7 @@ export default function PrivacyPolicyPage() {
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-12">
           <div className="card p-6 sm:p-10 space-y-8">
             <p className="text-muted leading-relaxed text-sm">
-              Aswini Godavari Travel & Tourism ("we", "us", "our") operates the bhadradripapikondalu.com booking platform.
+              Aswini Godavari Travel & Tourism ("we", "us", "our") operates the papikondalutourism.com booking platform.
               This Privacy Policy explains what personal data we collect, how we use it, and your rights in relation to it.
               By creating an account or making a booking, you agree to the practices described below.
             </p>

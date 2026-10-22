@@ -193,12 +193,12 @@ Creates 4 packages, 3 boats, and a SUPER_ADMIN user.
 ### Frontend (Vercel)
 1. Connect GitHub repo to Vercel
 2. Set environment variables in Vercel dashboard
-3. Deploy — `www.bhadradripapikondalu.com`
+3. Deploy — `www.papikondalutourism.com`
 
 ### Backend (Render / Railway)
 1. Create a Web Service, build command: `npm run build`, start: `npm start`
 2. Set environment variables
-3. Configure custom domain: `api.bhadradripapikondalu.com`
+3. Configure custom domain: `api.papikondalutourism.com`
 
 ### Database (MongoDB Atlas)
 1. Create a cluster
