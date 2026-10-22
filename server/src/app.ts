@@ -52,19 +52,10 @@ app.use((req, res, next) => {
 app.use(express.urlencoded({ extended: true, limit: '2mb' }))
 app.use(cookieParser())
 
-// Strict rate limiter for auth endpoints (brute-force protection)
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { message: 'Too many requests. Please try again in 15 minutes.' },
-})
-
-// General rate limiter
+// General rate limiter — covers all routes
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300,
+  max: 500,
   standardHeaders: true,
   legacyHeaders: false,
 })
@@ -74,8 +65,8 @@ app.use(globalLimiter)
 // Health check
 app.get('/health', (_, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }))
 
-// API routes
-app.use('/api/v1/auth', authLimiter, authRoutes)
+// API routes — login/register rate limits are applied per-route inside auth.ts
+app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/packages', packageRoutes)
 app.use('/api/v1/bookings', bookingRoutes)
 app.use('/api/v1/payments', paymentRoutes)

@@ -14,12 +14,14 @@ function sha512(str: string): string {
   return crypto.createHash('sha512').update(str).digest('hex')
 }
 
+// PayU hash format: key|txnid|amount|productinfo|firstname|email|udf1..udf5|5 empty|salt
 function payuRequestHash(key: string, txnid: string, amount: string, productinfo: string, firstname: string, email: string, salt: string): string {
-  return sha512(`${key}|${txnid}|${amount}|${productinfo}|${firstname}|${email}|||||||||||||${salt}`)
+  return sha512(`${key}|${txnid}|${amount}|${productinfo}|${firstname}|${email}|||||||||||${salt}`)
 }
 
+// Response hash (reversed fields, firstname before email): salt|status|10 empty|firstname|email|productinfo|amount|txnid|key
 function payuResponseHash(salt: string, status: string, txnid: string, amount: string, productinfo: string, firstname: string, email: string, key: string): string {
-  return sha512(`${salt}|${status}|||||||||||||${email}|${firstname}|${productinfo}|${amount}|${txnid}|${key}`)
+  return sha512(`${salt}|${status}|||||||||||${firstname}|${email}|${productinfo}|${amount}|${txnid}|${key}`)
 }
 
 export async function createOrder(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
