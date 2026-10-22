@@ -113,6 +113,21 @@ function BookingWizard({ initSlug }: { initSlug: string }) {
       // @ts-ignore
       if (typeof window.bolt === 'undefined') throw new Error('Payment gateway not loaded. Please refresh and try again.')
 
+      // Reset loading if PayU modal closes without calling any callback
+      // (happens on server-side errors like "Too many Requests")
+      let callbackFired = false
+      const onFocusBack = () => {
+        window.removeEventListener('focus', onFocusBack)
+        // Give callbacks 500ms to fire first; if not, unlock the button
+        setTimeout(() => {
+          if (!callbackFired) {
+            setPayLoading(false)
+            setPayError('Payment window closed. Please try again.')
+          }
+        }, 500)
+      }
+      window.addEventListener('focus', onFocusBack)
+
       // @ts-ignore
       window.bolt.launch({
         key: orderData.key,
@@ -128,6 +143,8 @@ function BookingWizard({ initSlug }: { initSlug: string }) {
         udf1: '', udf2: '', udf3: '', udf4: '', udf5: '',
       }, {
         responseHandler: async (BOLT: any) => {
+          callbackFired = true
+          window.removeEventListener('focus', onFocusBack)
           if (BOLT.response.txnStatus === 'SUCCESS') {
             const vr = await fetch(`${API}/payments/verify`, {
               method: 'POST', credentials: 'include',
@@ -150,6 +167,8 @@ function BookingWizard({ initSlug }: { initSlug: string }) {
           }
         },
         catchException: (BOLT: any) => {
+          callbackFired = true
+          window.removeEventListener('focus', onFocusBack)
           setPayError(BOLT.message ?? 'Something went wrong. Please try again.')
           setPayLoading(false)
         },
