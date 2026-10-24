@@ -10,11 +10,7 @@ import { useAuth } from '@/contexts/AuthContext'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api/v1'
 
-const ALL_PACKAGES = [
-  { slug: 'rajahmundry-papikondalu-packages', name: 'Rajahmundry → Papikondalu Day Tour', price: 1500, image: 'https://res.cloudinary.com/djmcbqzqt/image/upload/c_fill,w_400,h_300,q_auto,f_auto/v1755980788/PAPI-KONDALU_wswdud.jpg', duration: '1 Day', departure: 'Rajahmundry' },
-  { slug: 'bhadrachalam-papikondalu-packages', name: 'Bhadrachalam Papikondalu Night Stay', price: 2300, image: 'https://res.cloudinary.com/djmcbqzqt/image/upload/c_fill,w_400,h_300,q_auto,f_auto/v1755980906/BhadrachalamTemple-1068x421_heh1o2.png', duration: '2 Days 1 Night', departure: 'Bhadrachalam' },
-  { slug: 'sirivaka-night-stay-package', name: 'Sirivaka Night Stay Package', price: 5200, image: 'https://res.cloudinary.com/djmcbqzqt/image/upload/c_fill,w_400,h_300,q_auto,f_auto/v1755981756/gudisa-hill-station-800x500_gvmccv.jpg', duration: '2 Days 1 Night', departure: 'Rajahmundry' },
-]
+type BookingPackage = { slug: string; name: string; price: number; image: string; duration: string; departure: string }
 
 const STEPS = ['Package', 'Date & Guests', 'Details', 'Review', 'Payment']
 
@@ -40,9 +36,37 @@ function StepIndicator({ current }: { current: number }) {
 
 function BookingWizard({ initSlug }: { initSlug: string }) {
   const { user: authUser, loading: authLoading } = useAuth()
-  const [step, setStep] = useState(initSlug ? 1 : 0)
-  const [pkg, setPkg] = useState(ALL_PACKAGES.find(p => p.slug === initSlug) ?? null)
+  const [packages, setPackages] = useState<BookingPackage[]>([])
+  const [pkgsLoading, setPkgsLoading] = useState(true)
+  const [step, setStep] = useState(0)
+  const [pkg, setPkg] = useState<BookingPackage | null>(null)
   const [date, setDate] = useState('')
+
+  // Fetch bookable packages from API (those with an adultPrice)
+  useEffect(() => {
+    fetch(`${API}/packages?limit=50`)
+      .then(r => r.json())
+      .then(d => {
+        const bookable: BookingPackage[] = (d.packages ?? [])
+          .filter((p: any) => p.adultPrice)
+          .map((p: any) => ({
+            slug: p.slug,
+            name: p.title,
+            price: p.adultPrice,
+            image: p.coverImage || (p.images ?? [])[0] || '',
+            duration: p.duration,
+            departure: (p.departureLocations ?? [])[0] ?? '',
+          }))
+        setPackages(bookable)
+        // Auto-select the package from the URL and jump to step 1
+        if (initSlug) {
+          const found = bookable.find((p: BookingPackage) => p.slug === initSlug)
+          if (found) { setPkg(found); setStep(1) }
+        }
+      })
+      .catch(() => {})
+      .finally(() => setPkgsLoading(false))
+  }, [initSlug])
   const [adults, setAdults] = useState(2)
   const [children, setChildren] = useState(0)
   const [passengers, setPassengers] = useState<{ name: string; age: string; id: string }[]>([])
@@ -143,12 +167,20 @@ function BookingWizard({ initSlug }: { initSlug: string }) {
         {step === 0 && (
           <div>
             <h2 className="font-display text-xl font-bold text-ink mb-5">Select a Package</h2>
+            {pkgsLoading ? (
+              <div className="flex items-center justify-center py-12"><Loader2 className="w-7 h-7 animate-spin text-teal" /></div>
+            ) : packages.length === 0 ? (
+              <div className="text-center py-12 text-muted">
+                <p className="mb-3">No bookable packages available right now.</p>
+                <a href="/contact" className="btn-secondary">Contact Us</a>
+              </div>
+            ) : (
             <div className="grid sm:grid-cols-2 gap-4">
-              {ALL_PACKAGES.map(p => (
+              {packages.map(p => (
                 <button key={p.slug} onClick={() => { setPkg(p); setStep(1) }}
                   className="card text-left group hover:ring-2 hover:ring-teal transition-all">
-                  <div className="relative h-36 overflow-hidden">
-                    <Image src={p.image} alt={p.name} fill className="object-cover group-hover:scale-105 transition-transform" unoptimized />
+                  <div className="relative h-36 overflow-hidden bg-gray-100">
+                    {p.image && <Image src={p.image} alt={p.name} fill className="object-cover group-hover:scale-105 transition-transform" unoptimized />}
                   </div>
                   <div className="p-4">
                     <div className="font-semibold text-ink text-sm mb-1 leading-snug">{p.name}</div>
@@ -158,6 +190,7 @@ function BookingWizard({ initSlug }: { initSlug: string }) {
                 </button>
               ))}
             </div>
+            )}
             <p className="text-center text-muted text-sm mt-5">Need a group booking? <Link href="/contact" className="text-teal font-medium">Contact us</Link></p>
           </div>
         )}
@@ -167,8 +200,8 @@ function BookingWizard({ initSlug }: { initSlug: string }) {
           <div>
             <button onClick={() => setStep(0)} className="flex items-center gap-1 text-muted text-sm mb-5 hover:text-ink"><ArrowLeft className="w-4 h-4" /> Change package</button>
             <div className="card p-3 flex items-center gap-3 mb-5">
-              <div className="relative w-14 h-10 rounded-lg overflow-hidden flex-shrink-0">
-                <Image src={pkg!.image} alt={pkg!.name} fill className="object-cover" unoptimized />
+              <div className="relative w-14 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                {pkg!.image && <Image src={pkg!.image} alt={pkg!.name} fill className="object-cover" unoptimized />}
               </div>
               <div>
                 <div className="font-semibold text-ink text-sm">{pkg!.name}</div>
