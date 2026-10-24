@@ -20,9 +20,10 @@ function payuRequestHash(key: string, txnid: string, amount: string, productinfo
   return sha512(`${key}|${txnid}|${amount}|${productinfo}|${firstname}|${email}|||||||||||${salt}`)
 }
 
-// Response hash (reversed fields, firstname before email): salt|status|10 empty|firstname|email|productinfo|amount|txnid|key
+// Response hash (reverse of request): salt|status|10 empty|email|firstname|productinfo|amount|txnid|key
+// In the request the order is firstname then email; the response reverses that to email then firstname.
 function payuResponseHash(salt: string, status: string, txnid: string, amount: string, productinfo: string, firstname: string, email: string, key: string): string {
-  return sha512(`${salt}|${status}|||||||||||${firstname}|${email}|${productinfo}|${amount}|${txnid}|${key}`)
+  return sha512(`${salt}|${status}|||||||||||${email}|${firstname}|${productinfo}|${amount}|${txnid}|${key}`)
 }
 
 export async function createOrder(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
