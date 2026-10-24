@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 
-const STAFF_ROLES = ['ADMIN', 'SUPER_ADMIN', 'BOOKING_MANAGER', 'CHECKIN_STAFF', 'CONTENT_MANAGER']
+const STAFF_ROLES = ['ADMIN', 'SUPER_ADMIN']
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
