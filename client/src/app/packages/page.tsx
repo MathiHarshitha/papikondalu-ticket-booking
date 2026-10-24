@@ -6,7 +6,7 @@ import PackagesList from '@/components/packages/PackagesList'
 export const metadata: Metadata = {
   title: 'Tour Packages',
   description:
-    'Browse all 9 Papikondalu tour packages — one-day boat rides, two-day temple tours, night camping and waterfall adventures from Rajahmundry and Bhadrachalam.',
+    'Browse Papikondalu tour packages — one-day boat rides, two-day temple tours, night camping and waterfall adventures from Rajahmundry and Bhadrachalam.',
 }
 
 export default function PackagesPage() {
@@ -25,7 +25,7 @@ export default function PackagesPage() {
               All Tour Packages
             </h1>
             <p className="text-white/70 text-lg max-w-xl mx-auto">
-              9 hand-crafted Godavari boat tours — from peaceful one-day cruises
+              Hand-crafted Godavari boat tours — from peaceful one-day cruises
               to adventurous multi-day wilderness stays.
             </p>
           </div>
