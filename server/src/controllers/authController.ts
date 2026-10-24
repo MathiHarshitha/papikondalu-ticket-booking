@@ -21,14 +21,12 @@ const loginSchema = z.object({
   password: z.string().min(1),
 })
 
+const SESSION_SECONDS = 7 * 24 * 60 * 60
+
 function issueToken(userId: string, role: string, email: string): string {
   const secret = process.env.JWT_ACCESS_SECRET
   if (!secret) throw new Error('JWT_ACCESS_SECRET is not configured')
-  return jwt.sign(
-    { id: userId, role, email },
-    secret,
-    { expiresIn: (process.env.JWT_ACCESS_EXPIRES_IN || '7d') as any }
-  )
+  return jwt.sign({ id: userId, role, email }, secret, { expiresIn: SESSION_SECONDS })
 }
 
 function setCookieToken(res: Response, token: string): void {
@@ -37,7 +35,7 @@ function setCookieToken(res: Response, token: string): void {
     httpOnly: true,
     secure: isProd,
     sameSite: isProd ? 'none' : 'lax',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
+    maxAge: SESSION_SECONDS * 1000,
     path: '/',
   })
 }
