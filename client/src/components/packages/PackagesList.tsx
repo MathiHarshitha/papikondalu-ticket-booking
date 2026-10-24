@@ -37,14 +37,13 @@ export default function PackagesList() {
 
   // Build filter options dynamically from loaded packages
   const categories = useMemo(() => {
-    const cats = [...new Set(packages.map(p => p.category).filter(Boolean))]
-    return cats
+    return Array.from(new Set(packages.map(p => p.category).filter(Boolean)))
   }, [packages])
 
   const departures = useMemo(() => {
     const locs = new Set<string>()
     packages.forEach(p => p.departureLocations?.forEach(l => l && locs.add(l)))
-    return [...locs]
+    return Array.from(locs)
   }, [packages])
 
   const filtered = packages.filter(p => {
