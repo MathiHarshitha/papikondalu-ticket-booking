@@ -113,7 +113,7 @@ export async function verifyPayment(req: AuthRequest, res: Response, next: NextF
     })
 
     const ticketPayload = JSON.stringify({ bookingRef: booking.bookingRef, bookingId: booking._id.toString() })
-    await Ticket.create({ booking: booking._id, qrPayload: ticketPayload })
+    await Ticket.create({ booking: booking._id, qrPayload: ticketPayload, contactName: booking.leadPassengerName })
 
     sendBookingConfirmationEmail({
       to: booking.leadPassengerEmail,

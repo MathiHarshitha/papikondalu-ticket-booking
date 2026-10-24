@@ -35,14 +35,21 @@ app.use(helmet({
 }))
 
 // CORS
+// PayU callbacks are browser-redirected form POSTs — they carry an unrecognised
+// Origin (api.payu.in or the string "null") and must bypass the origin check.
+const CORS_BYPASS = ['/api/v1/payments/payu-return', '/api/v1/payments/webhook']
 const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:3000').split(',').map(o => o.trim())
-app.use(cors({
+const strictCors = cors({
   origin: (origin, cb) => {
     if (!origin || allowedOrigins.includes(origin)) cb(null, true)
     else cb(new Error('Not allowed by CORS'))
   },
   credentials: true,
-}))
+})
+app.use((req, res, next) => {
+  if (CORS_BYPASS.some(p => req.originalUrl.startsWith(p))) return next()
+  strictCors(req, res, next)
+})
 
 // Body parsing.
 // Webhook requires urlencoded (PayU IPN) and bypasses JSON middleware.
