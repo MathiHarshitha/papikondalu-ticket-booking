@@ -5,7 +5,7 @@ import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Check, ChevronRight, Calendar, Mail, CreditCard, Download, QrCode, ArrowLeft, AlertCircle, Loader2, LogIn } from 'lucide-react'
+import { Check, ChevronRight, Calendar, Mail, CreditCard, ArrowLeft, AlertCircle, Loader2, LogIn } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api/v1'
@@ -16,7 +16,7 @@ const ALL_PACKAGES = [
   { slug: 'sirivaka-night-stay-package', name: 'Sirivaka Night Stay Package', price: 5200, image: 'https://res.cloudinary.com/djmcbqzqt/image/upload/c_fill,w_400,h_300,q_auto,f_auto/v1755981756/gudisa-hill-station-800x500_gvmccv.jpg', duration: '2 Days 1 Night', departure: 'Rajahmundry' },
 ]
 
-const STEPS = ['Package', 'Date & Guests', 'Details', 'Review', 'Payment', 'Confirm']
+const STEPS = ['Package', 'Date & Guests', 'Details', 'Review', 'Payment']
 
 function StepIndicator({ current }: { current: number }) {
   return (
@@ -50,7 +50,6 @@ function BookingWizard({ initSlug }: { initSlug: string }) {
   const [profileLoaded, setProfileLoaded] = useState(false)
   const [payLoading, setPayLoading] = useState(false)
   const [payError, setPayError] = useState('')
-  const [bookingRef, setBookingRef] = useState('')
 
   const totalGuests = adults + children
   const subtotal = pkg ? pkg.price * totalGuests : 0
@@ -71,15 +70,6 @@ function BookingWizard({ initSlug }: { initSlug: string }) {
     const count = adults + children
     setPassengers(prev => Array.from({ length: count }, (_, i) => prev[i] ?? { name: '', age: '', id: '' }))
   }, [adults, children])
-
-  // Load PayU Bolt script once
-  useEffect(() => {
-    if (document.querySelector('script[src*="bolt.min.js"]')) return
-    const s = document.createElement('script')
-    s.src = 'https://jssdk.payu.in/bolt/bolt.min.js'
-    s.async = true
-    document.body.appendChild(s)
-  }, [])
 
   const handlePay = async () => {
     setPayLoading(true)
@@ -110,26 +100,10 @@ function BookingWizard({ initSlug }: { initSlug: string }) {
       const orderData = await orderRes.json()
       if (!orderRes.ok) throw new Error(orderData.message ?? 'Payment setup failed.')
 
-      // @ts-ignore
-      if (typeof window.bolt === 'undefined') throw new Error('Payment gateway not loaded. Please refresh and try again.')
-
-      // Reset loading if PayU modal closes without calling any callback
-      // (happens on server-side errors like "Too many Requests")
-      let callbackFired = false
-      const onFocusBack = () => {
-        window.removeEventListener('focus', onFocusBack)
-        // Give callbacks 500ms to fire first; if not, unlock the button
-        setTimeout(() => {
-          if (!callbackFired) {
-            setPayLoading(false)
-            setPayError('Payment window closed. Please try again.')
-          }
-        }, 500)
-      }
-      window.addEventListener('focus', onFocusBack)
-
-      // @ts-ignore
-      window.bolt.launch({
+      // Full-page redirect to PayU — no modal, no SDK needed
+      const payuUrl = 'https://secure.payu.in/_payment'
+      const returnUrl = `${API}/payments/payu-return`
+      const fields: Record<string, string> = {
         key: orderData.key,
         txnid: orderData.txnid,
         amount: orderData.amount,
@@ -137,42 +111,23 @@ function BookingWizard({ initSlug }: { initSlug: string }) {
         firstname: orderData.firstname,
         email: orderData.email,
         phone: orderData.phone,
-        surl: window.location.href,
-        furl: window.location.href,
+        surl: returnUrl,
+        furl: returnUrl,
         hash: orderData.hash,
         udf1: '', udf2: '', udf3: '', udf4: '', udf5: '',
-      }, {
-        responseHandler: async (BOLT: any) => {
-          callbackFired = true
-          window.removeEventListener('focus', onFocusBack)
-          if (BOLT.response.txnStatus === 'SUCCESS') {
-            const vr = await fetch(`${API}/payments/verify`, {
-              method: 'POST', credentials: 'include',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                txnid: BOLT.response.txnid,
-                mihpayid: BOLT.response.mihpayid,
-                txnStatus: BOLT.response.txnStatus,
-                hash: BOLT.response.hash,
-                bookingId: holdData.bookingId,
-              }),
-            })
-            const vd = await vr.json()
-            if (!vr.ok) { setPayError(vd.message ?? 'Payment verification failed.'); setPayLoading(false); return }
-            setBookingRef(vd.bookingRef)
-            setStep(5)
-          } else {
-            setPayError(BOLT.response.txnStatus === 'CANCEL' ? 'Payment cancelled.' : 'Payment failed. Please try again.')
-            setPayLoading(false)
-          }
-        },
-        catchException: (BOLT: any) => {
-          callbackFired = true
-          window.removeEventListener('focus', onFocusBack)
-          setPayError(BOLT.message ?? 'Something went wrong. Please try again.')
-          setPayLoading(false)
-        },
-      })
+      }
+      const form = document.createElement('form')
+      form.method = 'POST'
+      form.action = payuUrl
+      for (const [name, value] of Object.entries(fields)) {
+        const input = document.createElement('input')
+        input.type = 'hidden'
+        input.name = name
+        input.value = value
+        form.appendChild(input)
+      }
+      document.body.appendChild(form)
+      form.submit()
     } catch (e: any) {
       setPayError(e.message ?? 'Something went wrong.')
       setPayLoading(false)
@@ -349,29 +304,6 @@ function BookingWizard({ initSlug }: { initSlug: string }) {
                 : <><CreditCard className="w-5 h-5" /> Pay ₹{total.toLocaleString('en-IN')} Securely</>}
             </button>
             <div className="text-center text-xs text-muted mt-4">🔒 SSL encrypted · PCI-DSS compliant · Never stored on our servers</div>
-          </div>
-        )}
-
-        {/* Step 5: Confirmation */}
-        {step === 5 && (
-          <div className="text-center py-4">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Check className="w-8 h-8 text-green-600" />
-            </div>
-            <h2 className="font-display text-2xl font-bold text-ink mb-2">Booking Confirmed!</h2>
-            <p className="text-muted mb-1">Ticket sent to <strong>{contact.email}</strong></p>
-            <p className="font-mono text-ink font-bold mb-6">{bookingRef || 'PK-XXXXXXXX'}</p>
-            <div className="card p-6 mb-6 max-w-xs mx-auto">
-              <div className="bg-gray-50 rounded-lg p-8 flex items-center justify-center mb-3">
-                <QrCode className="w-20 h-20 text-ink" />
-              </div>
-              <p className="text-xs text-muted">Show this QR at the boarding gate</p>
-            </div>
-            <div className="flex gap-3 justify-center flex-wrap">
-              <Link href="/account/tickets" className="btn-primary"><Download className="w-4 h-4" /> My Tickets</Link>
-              <Link href="/packages" className="btn-secondary">Book Another</Link>
-            </div>
-            <p className="text-muted text-xs mt-5">Questions? <a href="tel:+919848323488" className="text-teal">+91 98483 23488</a></p>
           </div>
         )}
 

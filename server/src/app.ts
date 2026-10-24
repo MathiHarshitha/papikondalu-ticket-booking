@@ -48,8 +48,9 @@ app.use(cors({
 // Webhook requires urlencoded (PayU IPN) and bypasses JSON middleware.
 // All other routes receive JSON only — deliberately NOT applying global urlencoded
 // so cross-origin form POST attacks cannot submit a parseable body (CSRF mitigation).
+const URLENCODED_ROUTES = ['/api/v1/payments/webhook', '/api/v1/payments/payu-return']
 app.use((req, res, next) => {
-  if (req.originalUrl === '/api/v1/payments/webhook') return next()
+  if (URLENCODED_ROUTES.includes(req.originalUrl)) return next()
   express.json({ limit: '2mb' })(req, res, next)
 })
 app.use(cookieParser())

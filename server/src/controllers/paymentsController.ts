@@ -207,6 +207,83 @@ export async function webhook(req: Request, res: Response): Promise<void> {
   }
 }
 
+export async function payuReturn(req: Request, res: Response): Promise<void> {
+  const { CLIENT_URL, PAYU_KEY, PAYU_SALT } = process.env
+  const clientUrl = (CLIENT_URL || 'http://localhost:3000').split(',')[0].trim()
+
+  try {
+    const body = req.body as Record<string, string>
+    const { txnid, mihpayid, amount, productinfo, firstname, email, txnStatus, hash: responseHash } = body
+
+    if (!PAYU_KEY || !PAYU_SALT || !txnid || !responseHash) {
+      res.redirect(`${clientUrl}/book/confirmed?status=failed&reason=invalid`); return
+    }
+
+    const status = (txnStatus || '').toLowerCase()
+    const expectedHash = payuResponseHash(PAYU_SALT, status, txnid, amount, productinfo, firstname, email, PAYU_KEY)
+    if (expectedHash !== responseHash) {
+      logger.warn('PayU return: invalid signature', { txnid })
+      res.redirect(`${clientUrl}/book/confirmed?status=failed&reason=tampered`); return
+    }
+
+    if (status !== 'success') {
+      res.redirect(`${clientUrl}/book/confirmed?status=failed&reason=${encodeURIComponent(txnStatus || 'failed')}`); return
+    }
+
+    const payment = await Payment.findOne({ gatewayOrderId: txnid })
+    if (!payment) {
+      res.redirect(`${clientUrl}/book/confirmed?status=failed&reason=not_found`); return
+    }
+
+    if (payment.status !== 'CAPTURED') {
+      payment.gatewayPaymentId = mihpayid || payment.gatewayPaymentId
+      payment.gatewaySignature = responseHash
+      payment.status = 'CAPTURED'
+      await payment.save()
+
+      const booking = await Booking.findById(payment.booking)
+      if (booking && booking.bookingStatus !== 'CONFIRMED') {
+        booking.bookingStatus = 'CONFIRMED'
+        booking.paymentStatus = 'CAPTURED'
+        booking.holdExpiresAt = null
+        await booking.save()
+
+        await Departure.findByIdAndUpdate(booking.departure, {
+          $inc: { confirmedSeats: booking.adultCount + booking.childCount, heldSeats: -(booking.adultCount + booking.childCount) }
+        })
+
+        const existingTicket = await Ticket.findOne({ booking: booking._id })
+        if (!existingTicket) {
+          const ticketPayload = JSON.stringify({ bookingRef: booking.bookingRef, bookingId: booking._id.toString() })
+          await Ticket.create({ booking: booking._id, qrPayload: ticketPayload, contactName: booking.leadPassengerName })
+        }
+
+        sendBookingConfirmationEmail({
+          to: booking.leadPassengerEmail,
+          name: booking.leadPassengerName,
+          bookingRef: booking.bookingRef,
+          packageTitle: booking.packageSnapshot.title,
+          departureDate: booking.packageSnapshot.departureDate,
+          boardingLocation: booking.packageSnapshot.boardingLocation,
+          adultCount: booking.adultCount,
+          childCount: booking.childCount,
+          total: booking.fareBreakdown.total,
+        }).catch(() => {})
+
+        logger.info('PayU return: booking confirmed', { bookingRef: booking.bookingRef })
+        res.redirect(`${clientUrl}/book/confirmed?status=success&ref=${encodeURIComponent(booking.bookingRef)}`); return
+      }
+    }
+
+    // Already captured — find ref and redirect
+    const booking = await Booking.findById(payment.booking).select('bookingRef').lean()
+    res.redirect(`${clientUrl}/book/confirmed?status=success&ref=${encodeURIComponent((booking as any)?.bookingRef || '')}`)
+  } catch (err) {
+    logger.error('PayU return error', { err })
+    res.redirect(`${(CLIENT_URL || 'http://localhost:3000').split(',')[0].trim()}/book/confirmed?status=failed&reason=error`)
+  }
+}
+
 export async function paymentStatus(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const payment = await Payment.findById(req.params.id).populate<{ booking: { customer: { toString(): string } } }>('booking')
