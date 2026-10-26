@@ -139,11 +139,11 @@ export async function webhook(req: Request, res: Response): Promise<void> {
     if (!PAYU_SALT || !PAYU_KEY) { res.status(200).json({ received: true }); return }
 
     const body = req.body as Record<string, string>
-    const { txnid, mihpayid, amount, productinfo, firstname, email, txnStatus, hash: responseHash } = body
+    const { txnid, mihpayid, amount, productinfo, firstname, email, status: rawStatus, hash: responseHash } = body
 
     if (!txnid || !responseHash) { res.status(200).json({ received: true }); return }
 
-    const status = (txnStatus || '').toLowerCase()
+    const status = (rawStatus || '').toLowerCase()
     const expectedHash = payuResponseHash(PAYU_SALT, status, txnid, amount, productinfo, firstname, email, PAYU_KEY)
     if (expectedHash !== responseHash) {
       logger.warn('PayU webhook invalid signature', { txnid })
@@ -214,13 +214,13 @@ export async function payuReturn(req: Request, res: Response): Promise<void> {
 
   try {
     const body = req.body as Record<string, string>
-    const { txnid, mihpayid, amount, productinfo, firstname, email, txnStatus, hash: responseHash } = body
+    const { txnid, mihpayid, amount, productinfo, firstname, email, status: rawStatus, hash: responseHash } = body
 
     if (!PAYU_KEY || !PAYU_SALT || !txnid || !responseHash) {
       res.redirect(`${clientUrl}/book/confirmed?status=failed&reason=invalid`); return
     }
 
-    const status = (txnStatus || '').toLowerCase()
+    const status = (rawStatus || '').toLowerCase()
     const expectedHash = payuResponseHash(PAYU_SALT, status, txnid, amount, productinfo, firstname, email, PAYU_KEY)
     if (expectedHash !== responseHash) {
       logger.warn('PayU return: invalid signature', { txnid })
@@ -228,7 +228,7 @@ export async function payuReturn(req: Request, res: Response): Promise<void> {
     }
 
     if (status !== 'success') {
-      res.redirect(`${clientUrl}/book/confirmed?status=failed&reason=${encodeURIComponent(txnStatus || 'failed')}`); return
+      res.redirect(`${clientUrl}/book/confirmed?status=failed&reason=${encodeURIComponent(rawStatus || 'failed')}`); return
     }
 
     const payment = await Payment.findOne({ gatewayOrderId: txnid })
